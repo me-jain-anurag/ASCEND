@@ -1,0 +1,116 @@
+# ─────────────────────────────────────────────────────────────
+# ASCEND .gitignore
+# Keeps build junk, large generated data, models, and secrets out of git.
+# Note: this is a security project. Intentional LAB FIXTURES (fake keys,
+# planted vulnerable configs) live under lab/ and ARE meant to be committed;
+# the secret patterns below are scoped so they do not silently drop those.
+# Adjust as the codebase grows.
+# ─────────────────────────────────────────────────────────────
+
+# ── Python (collectors, graphs, scorer, chokepoint, FastAPI service) ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+ENV/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# ── Jupyter / notebooks ──
+.ipynb_checkpoints/
+
+# ── Machine-learning artifacts (trained models are large; regenerate them) ──
+# The saved model is a build output, not source — see docs/02 flow B.
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.onnx
+*.h5
+*.ckpt
+models/
+checkpoints/
+mlruns/
+wandb/
+lightning_logs/
+
+# ── Generated datasets / evaluation outputs (large; reproducible from seeds) ──
+# Keep small, source-of-truth files (scope.yaml, sample fixtures) tracked;
+# ignore bulk generated data. Un-ignore anything you deliberately want in git
+# with a "!" line, e.g.  !eval/results_summary.csv
+/data/
+/datasets/
+/eval/_generated/
+/eval/figures/
+*.parquet
+
+# ── Node / React dashboard (Vite + TypeScript) ──
+node_modules/
+dashboard/dist/
+dashboard/build/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ── Secrets & real credentials (NEVER commit these) ──
+# Lab fixtures live under lab/ and are exempt via the "!lab/" lines at the end.
+.env
+.env.*
+secrets/
+*.pem
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+
+# ── Docker runtime state (compose files & Dockerfiles ARE tracked) ──
+*.pid
+docker-volumes/
+.volumes/
+
+# ── Logs & scratch output ──
+*.log
+logs/
+out/
+output/
+tmp/
+scratch/
+
+# ── OS / editor cruft ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# ── Claude Code: keep settings.json + skills + hooks tracked; ignore local-only ──
+.claude/settings.local.json
+.claude/worktrees/
+.claude/**/*.local.*
+
+# ── Intentional lab fixtures are NOT ignored (exempt the patterns above) ──
+# Fake keys / planted secrets that the lab needs are committed on purpose.
+!lab/**
+!lab/**/.env
+!lab/**/*.pem
+!lab/**/id_rsa*
