@@ -1,0 +1,115 @@
+{
+  "_comment": "ASCEND restricted knowledge pack. Public reference data (MITRE ATT&CK, CWE, CAPEC, NVD/CVE) for ONLY the seven in-scope techniques and the two anchor CVEs, per docs/05 section 5 ('restrict the import to the neighbourhood of our seven techniques'). Transcribed offline so the lab network needs no internet route (docs/02 section 6). The Semester-1 knowledge_graph/ module replaces this file with a live restricted pull from the official feeds; the lookup interface stays the same.",
+  "_source": "MITRE ATT&CK Enterprise v14, MITRE CWE v4.13, MITRE CAPEC v3.9, NVD CVE records",
+  "_provenance": "declared",
+
+  "techniques": {
+    "T1548.001": {
+      "attack_id": "T1548.001",
+      "name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
+      "tactic": "Privilege Escalation",
+      "cwe": ["CWE-732", "CWE-250"],
+      "capec": ["CAPEC-69"],
+      "description_text": "Adversaries may abuse setuid or setgid bits to run a binary with the privileges of its owner. A binary owned by root with the setuid bit set, and with a documented shell escape, allows any user who can execute it to obtain a root shell."
+    },
+    "T1548.003": {
+      "attack_id": "T1548.003",
+      "name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+      "tactic": "Privilege Escalation",
+      "cwe": ["CWE-250", "CWE-269"],
+      "capec": ["CAPEC-69"],
+      "description_text": "Adversaries may abuse an over-permissive sudo configuration to execute commands as root. A NOPASSWD rule naming a binary with a shell escape (tar, find, vim, awk, python) is equivalent to granting an unauthenticated root shell to that account."
+    },
+    "T1068": {
+      "attack_id": "T1068",
+      "name": "Exploitation for Privilege Escalation",
+      "tactic": "Privilege Escalation",
+      "cwe": ["CWE-269", "CWE-787"],
+      "capec": ["CAPEC-233"],
+      "description_text": "Adversaries may exploit a software vulnerability in the kernel or a privileged component to elevate from an unprivileged local account to root."
+    },
+    "T1611": {
+      "attack_id": "T1611",
+      "name": "Escape to Host",
+      "tactic": "Privilege Escalation",
+      "cwe": ["CWE-269", "CWE-653"],
+      "capec": ["CAPEC-480"],
+      "description_text": "Adversaries may break out of a container to gain access to the underlying host. A mounted Docker socket, or membership of the docker group, is root-equivalent on the host because it permits launching a privileged container."
+    },
+    "T1021.004": {
+      "attack_id": "T1021.004",
+      "name": "Remote Services: SSH",
+      "tactic": "Lateral Movement",
+      "cwe": ["CWE-287"],
+      "capec": ["CAPEC-560"],
+      "description_text": "Adversaries may use valid accounts to log into a remote machine over SSH and execute commands as that account."
+    },
+    "T1550": {
+      "attack_id": "T1550",
+      "name": "Use Alternate Authentication Material",
+      "tactic": "Lateral Movement",
+      "cwe": ["CWE-522", "CWE-287"],
+      "capec": ["CAPEC-560"],
+      "description_text": "Adversaries may reuse stolen authentication material, such as an SSH private key, to authenticate to systems other than the one it was taken from. A key accepted by more than one host multiplies the reach of a single disclosure."
+    },
+    "T1552.001": {
+      "attack_id": "T1552.001",
+      "name": "Unsecured Credentials in Files",
+      "tactic": "Credential Access",
+      "cwe": ["CWE-522", "CWE-732", "CWE-538"],
+      "capec": ["CAPEC-639"],
+      "description_text": "Adversaries may search local file systems for credentials stored insecurely: private keys, .env files, shell history and configuration files that are readable by accounts other than their owner."
+    },
+    "T1021.004+T1550": {
+      "attack_id": "T1021.004+T1550",
+      "name": "Remote Services: SSH (reused credential)",
+      "tactic": "Lateral Movement",
+      "cwe": ["CWE-522", "CWE-287"],
+      "capec": ["CAPEC-560"],
+      "description_text": "Composite edge emitted by the path enumerator: an SSH login (T1021.004) performed with authentication material harvested elsewhere (T1550). ASCEND reports it as one edge because a reviewer reads it as one attacker action."
+    }
+  },
+
+  "cves": {
+    "CVE-2022-0847": {
+      "cve_id": "CVE-2022-0847",
+      "name": "DirtyPipe",
+      "base_cvss": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "cwe": ["CWE-665"],
+      "attack_id": "T1068",
+      "affected": "Linux kernel 5.8 up to (excluding) 5.16.11, 5.15.25, 5.10.102",
+      "description": "Uninitialised pipe_buffer.flags in the Linux kernel allows an unprivileged local user to overwrite data in arbitrary read-only files, including /etc/passwd, yielding root."
+    },
+    "CVE-2021-4034": {
+      "cve_id": "CVE-2021-4034",
+      "name": "PwnKit",
+      "base_cvss": 7.8,
+      "cvss_vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+      "cwe": ["CWE-787"],
+      "attack_id": "T1068",
+      "affected": "polkit pkexec, all versions before 0.105-31.1 / 0.120-3",
+      "description": "Out-of-bounds write in polkit's pkexec allows any unprivileged local user to gain full root privileges with no authentication."
+    }
+  },
+
+  "cwe": {
+    "CWE-250": "Execution with Unnecessary Privileges",
+    "CWE-269": "Improper Privilege Management",
+    "CWE-287": "Improper Authentication",
+    "CWE-522": "Insufficiently Protected Credentials",
+    "CWE-538": "Insertion of Sensitive Information into Externally-Accessible File or Directory",
+    "CWE-653": "Improper Isolation or Compartmentalization",
+    "CWE-665": "Improper Initialization",
+    "CWE-732": "Incorrect Permission Assignment for Critical Resource",
+    "CWE-787": "Out-of-bounds Write"
+  },
+
+  "capec": {
+    "CAPEC-69": "Target Programs with Elevated Privileges",
+    "CAPEC-233": "Privilege Escalation",
+    "CAPEC-480": "Escaping Virtualization",
+    "CAPEC-560": "Use of Known Domain Credentials",
+    "CAPEC-639": "Probe System Files"
+  }
+}
