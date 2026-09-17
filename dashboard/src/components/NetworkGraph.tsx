@@ -9,9 +9,10 @@ interface Props {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  web: '#3b82f6',
-  app: '#8b5cf6',
-  db:  '#f43f5e',
+  web:      '#3b82f6',
+  app:      '#8b5cf6',
+  db:       '#f43f5e',
+  database: '#f43f5e',  // alias: facts.json uses "database"; contract uses "db"
   'jump host': '#f59e0b',
 };
 
