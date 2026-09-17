@@ -1,0 +1,161 @@
+{
+  "collected_at": "2026-09-17T15:33:12+00:00",
+  "source": "docker:ascend-",
+  "hosts_probed": [
+    "app01",
+    "db01",
+    "web01"
+  ],
+  "counts": {
+    "hosts": 3,
+    "accounts": 6,
+    "credentials": 1,
+    "reachability_edges": 4,
+    "vectors": 3,
+    "conditions_examined_and_skipped": 4
+  },
+  "skipped": [
+    {
+      "host": "app01",
+      "technique": "T1552.001",
+      "path": "/home/appuser/.ssh/id_rsa",
+      "reason": "mode 600 \u2014 readable only by its owner, not a disclosure"
+    },
+    {
+      "host": "app01",
+      "technique": "T1548.003",
+      "rule": "(root) NOPASSWD: /bin/ls",
+      "reason": "/bin/ls has no documented shell escape"
+    },
+    {
+      "host": "app01",
+      "technique": "T1068",
+      "cve": "CVE-2022-0847",
+      "reason": "kernel 5.10.150 is at or above the 5.10 branch fix 5.10.102"
+    },
+    {
+      "host": "web01",
+      "technique": "T1068",
+      "cve": "CVE-2022-0847",
+      "reason": "kernel 5.4.0 is below the affected range"
+    }
+  ],
+  "reachability_attempts": [
+    {
+      "from": "app01",
+      "to": "db01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": true,
+      "evidence": [
+        {
+          "endpoint": "db01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.19.0.2",
+          "result": "open"
+        }
+      ]
+    },
+    {
+      "from": "app01",
+      "to": "web01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": true,
+      "evidence": [
+        {
+          "endpoint": "web01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.18.0.3",
+          "result": "open"
+        }
+      ]
+    },
+    {
+      "from": "db01",
+      "to": "app01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": true,
+      "evidence": [
+        {
+          "endpoint": "app01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.18.0.2",
+          "result": "refused",
+          "detail": "Network is unreachable"
+        },
+        {
+          "endpoint": "172.19.0.3",
+          "result": "open"
+        }
+      ]
+    },
+    {
+      "from": "db01",
+      "to": "web01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": false,
+      "evidence": [
+        {
+          "endpoint": "web01",
+          "result": "dns_failure",
+          "detail": "[Errno -3] Temporary failure in name resolution"
+        },
+        {
+          "endpoint": "172.18.0.3",
+          "result": "refused",
+          "detail": "Network is unreachable"
+        }
+      ]
+    },
+    {
+      "from": "web01",
+      "to": "app01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": true,
+      "evidence": [
+        {
+          "endpoint": "app01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.18.0.2",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.19.0.3",
+          "result": "refused",
+          "detail": "Network is unreachable"
+        }
+      ]
+    },
+    {
+      "from": "web01",
+      "to": "db01",
+      "port": 22,
+      "service": "ssh",
+      "reachable": false,
+      "evidence": [
+        {
+          "endpoint": "db01",
+          "result": "dns_failure",
+          "detail": "[Errno -3] Temporary failure in name resolution"
+        },
+        {
+          "endpoint": "172.19.0.2",
+          "result": "refused",
+          "detail": "Network is unreachable"
+        }
+      ]
+    }
+  ]
+}

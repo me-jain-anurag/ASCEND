@@ -1,0 +1,597 @@
+{
+  "_comment": "Committed raw probe capture of the reference lab (web01 -> app01 -> db01), RECORDED FROM AN ACTUAL `bash lab/up.sh` RUN by collectors/collect.py --save-raw. Replay it through the current rules with no Docker present:\\n    python3 collectors/collect.py --from-raw collectors/fixtures/lab_capture.json\\nThe SSH fingerprint is replaced with a fixed placeholder because the deploy key is generated per clone; a raw capture never contains key material. Contains the lab's negative controls \u2014 a 0600 copy of the same key on app01, a NOPASSWD /bin/ls rule, a patched 5.10 kernel, and the Debian baseline setuid binaries \u2014 all of which the rules must DECLINE to report.",
+  "hosts": {
+    "app01": {
+      "accounts": [
+        {
+          "gecos": "root",
+          "gid": 0,
+          "home": "/root",
+          "privilege": "root",
+          "shell": "/bin/bash",
+          "type": "root",
+          "uid": 0,
+          "username": "root"
+        },
+        {
+          "gecos": null,
+          "gid": 1001,
+          "home": "/home/appuser",
+          "privilege": "low",
+          "shell": "/bin/bash",
+          "type": "service",
+          "uid": 1001,
+          "username": "appuser"
+        }
+      ],
+      "authorized_keys": [
+        {
+          "account": "appuser",
+          "bits": 256,
+          "comment": "app_deploy_key",
+          "fingerprint": "SHA256:LabFixtureDeployKeyAAAAAAAAAAAAAAAAAAAAAAAA",
+          "host": "app01",
+          "line_number": 1,
+          "options": null,
+          "path": "/home/appuser/.ssh/authorized_keys",
+          "privilege": "low",
+          "type": "ssh-ed25519"
+        }
+      ],
+      "cred_files": [
+        {
+          "group": "appuser",
+          "group_readable": false,
+          "is_private_key": true,
+          "key_comment": "app_deploy_key",
+          "key_encrypted": false,
+          "key_fingerprint": "SHA256:LabFixtureDeployKeyAAAAAAAAAAAAAAAAAAAAAAAA",
+          "key_type": "ssh-ed25519",
+          "mode": "600",
+          "other_readable": false,
+          "owner": "appuser",
+          "path": "/home/appuser/.ssh/id_rsa",
+          "size": 411
+        }
+      ],
+      "docker_socket": {
+        "docker_group_members": [],
+        "sockets": []
+      },
+      "kernel": {
+        "arch": "x86_64",
+        "declared_kernel": "5.10.150",
+        "distribution": "debian",
+        "effective_kernel": "5.10.150",
+        "observed_kernel": "7.2.6-x64v3-xanmod1",
+        "os": "linux",
+        "provenance": "declared"
+      },
+      "ports": [
+        {
+          "address": "0.0.0.0",
+          "loopback": false,
+          "port": 22,
+          "process": "sshd",
+          "proto": "tcp",
+          "service": "ssh"
+        },
+        {
+          "address": "127.0.0.11",
+          "loopback": true,
+          "port": 38183,
+          "process": null,
+          "proto": "tcp",
+          "service": "unknown"
+        }
+      ],
+      "sudo": {
+        "policy_files": {
+          "/etc/sudoers.d/appuser": "appuser ALL=(root) NOPASSWD: /bin/tar\nappuser ALL=(root) NOPASSWD: /bin/ls"
+        },
+        "rules": [
+          {
+            "binary": "/bin/tar",
+            "command": "/bin/tar",
+            "nopasswd": true,
+            "raw": "(root) NOPASSWD: /bin/tar",
+            "runas": "root",
+            "user": "appuser"
+          },
+          {
+            "binary": "/bin/ls",
+            "command": "/bin/ls",
+            "nopasswd": true,
+            "raw": "(root) NOPASSWD: /bin/ls",
+            "runas": "root",
+            "user": "appuser"
+          }
+        ]
+      },
+      "suid": [
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chfn",
+          "size": 62672
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chsh",
+          "size": 52880
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/gpasswd",
+          "size": 88496
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/mount",
+          "size": 59704
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/newgrp",
+          "size": 48896
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/passwd",
+          "size": 68248
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/su",
+          "size": 72000
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/sudo",
+          "size": 281624
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/umount",
+          "size": 35128
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/lib/openssh/ssh-keysign",
+          "size": 657984
+        }
+      ]
+    },
+    "db01": {
+      "accounts": [
+        {
+          "gecos": "root",
+          "gid": 0,
+          "home": "/root",
+          "privilege": "root",
+          "shell": "/bin/bash",
+          "type": "root",
+          "uid": 0,
+          "username": "root"
+        },
+        {
+          "gecos": null,
+          "gid": 1002,
+          "home": "/home/dbuser",
+          "privilege": "low",
+          "shell": "/bin/bash",
+          "type": "service",
+          "uid": 1002,
+          "username": "dbuser"
+        }
+      ],
+      "authorized_keys": [
+        {
+          "account": "dbuser",
+          "bits": 256,
+          "comment": "app_deploy_key",
+          "fingerprint": "SHA256:LabFixtureDeployKeyAAAAAAAAAAAAAAAAAAAAAAAA",
+          "host": "db01",
+          "line_number": 1,
+          "options": null,
+          "path": "/home/dbuser/.ssh/authorized_keys",
+          "privilege": "low",
+          "type": "ssh-ed25519"
+        }
+      ],
+      "cred_files": [],
+      "docker_socket": {
+        "docker_group_members": [],
+        "sockets": []
+      },
+      "kernel": {
+        "arch": "x86_64",
+        "declared_kernel": "5.16.0",
+        "distribution": "debian",
+        "effective_kernel": "5.16.0",
+        "observed_kernel": "7.2.6-x64v3-xanmod1",
+        "os": "linux",
+        "provenance": "declared"
+      },
+      "ports": [
+        {
+          "address": "0.0.0.0",
+          "loopback": false,
+          "port": 22,
+          "process": "sshd",
+          "proto": "tcp",
+          "service": "ssh"
+        },
+        {
+          "address": "127.0.0.11",
+          "loopback": true,
+          "port": 34763,
+          "process": null,
+          "proto": "tcp",
+          "service": "unknown"
+        }
+      ],
+      "sudo": {
+        "policy_files": {},
+        "rules": []
+      },
+      "suid": [
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chfn",
+          "size": 62672
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chsh",
+          "size": 52880
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/gpasswd",
+          "size": 88496
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/mount",
+          "size": 59704
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/newgrp",
+          "size": 48896
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/passwd",
+          "size": 68248
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/su",
+          "size": 72000
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/sudo",
+          "size": 281624
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/umount",
+          "size": 35128
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/lib/openssh/ssh-keysign",
+          "size": 657984
+        }
+      ]
+    },
+    "web01": {
+      "accounts": [
+        {
+          "gecos": "root",
+          "gid": 0,
+          "home": "/root",
+          "privilege": "root",
+          "shell": "/bin/bash",
+          "type": "root",
+          "uid": 0,
+          "username": "root"
+        },
+        {
+          "gecos": "www-data",
+          "gid": 33,
+          "home": "/var/www",
+          "privilege": "low",
+          "shell": "/bin/bash",
+          "type": "service",
+          "uid": 33,
+          "username": "www-data"
+        }
+      ],
+      "authorized_keys": [],
+      "cred_files": [
+        {
+          "group": "www-data",
+          "group_readable": true,
+          "is_private_key": true,
+          "key_comment": "app_deploy_key",
+          "key_encrypted": false,
+          "key_fingerprint": "SHA256:LabFixtureDeployKeyAAAAAAAAAAAAAAAAAAAAAAAA",
+          "key_type": "ssh-ed25519",
+          "mode": "644",
+          "other_readable": true,
+          "owner": "www-data",
+          "path": "/var/www/.ssh/id_rsa",
+          "size": 411
+        }
+      ],
+      "docker_socket": {
+        "docker_group_members": [],
+        "sockets": []
+      },
+      "kernel": {
+        "arch": "x86_64",
+        "declared_kernel": "5.4.0",
+        "distribution": "debian",
+        "effective_kernel": "5.4.0",
+        "observed_kernel": "7.2.6-x64v3-xanmod1",
+        "os": "linux",
+        "provenance": "declared"
+      },
+      "ports": [
+        {
+          "address": "0.0.0.0",
+          "loopback": false,
+          "port": 22,
+          "process": "sshd",
+          "proto": "tcp",
+          "service": "ssh"
+        },
+        {
+          "address": "127.0.0.11",
+          "loopback": true,
+          "port": 34355,
+          "process": null,
+          "proto": "tcp",
+          "service": "unknown"
+        }
+      ],
+      "sudo": {
+        "policy_files": {},
+        "rules": []
+      },
+      "suid": [
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chfn",
+          "size": 62672
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/chsh",
+          "size": 52880
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/gpasswd",
+          "size": 88496
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/mount",
+          "size": 59704
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/newgrp",
+          "size": 48896
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/passwd",
+          "size": 68248
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/su",
+          "size": 72000
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/sudo",
+          "size": 281624
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/umount",
+          "size": 35128
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/lib/openssh/ssh-keysign",
+          "size": 657984
+        }
+      ]
+    }
+  },
+  "reachability_matrix": [
+    {
+      "evidence": [
+        {
+          "endpoint": "db01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.18.0.3",
+          "result": "open"
+        }
+      ],
+      "from": "app01",
+      "port": 22,
+      "reachable": true,
+      "service": "ssh",
+      "to": "db01"
+    },
+    {
+      "evidence": [
+        {
+          "endpoint": "web01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.19.0.3",
+          "result": "open"
+        }
+      ],
+      "from": "app01",
+      "port": 22,
+      "reachable": true,
+      "service": "ssh",
+      "to": "web01"
+    },
+    {
+      "evidence": [
+        {
+          "endpoint": "app01",
+          "result": "open"
+        },
+        {
+          "endpoint": "172.18.0.2",
+          "result": "open"
+        },
+        {
+          "detail": "Network is unreachable",
+          "endpoint": "172.19.0.2",
+          "result": "refused"
+        }
+      ],
+      "from": "db01",
+      "port": 22,
+      "reachable": true,
+      "service": "ssh",
+      "to": "app01"
+    },
+    {
+      "evidence": [
+        {
+          "detail": "[Errno -3] Temporary failure in name resolution",
+          "endpoint": "web01",
+          "result": "dns_failure"
+        },
+        {
+          "detail": "Network is unreachable",
+          "endpoint": "172.19.0.3",
+          "result": "refused"
+        }
+      ],
+      "from": "db01",
+      "port": 22,
+      "reachable": false,
+      "service": "ssh",
+      "to": "web01"
+    },
+    {
+      "evidence": [
+        {
+          "endpoint": "app01",
+          "result": "open"
+        },
+        {
+          "detail": "Network is unreachable",
+          "endpoint": "172.18.0.2",
+          "result": "refused"
+        },
+        {
+          "endpoint": "172.19.0.2",
+          "result": "open"
+        }
+      ],
+      "from": "web01",
+      "port": 22,
+      "reachable": true,
+      "service": "ssh",
+      "to": "app01"
+    },
+    {
+      "evidence": [
+        {
+          "detail": "[Errno -3] Temporary failure in name resolution",
+          "endpoint": "db01",
+          "result": "dns_failure"
+        },
+        {
+          "detail": "Network is unreachable",
+          "endpoint": "172.18.0.3",
+          "result": "refused"
+        }
+      ],
+      "from": "web01",
+      "port": 22,
+      "reachable": false,
+      "service": "ssh",
+      "to": "db01"
+    }
+  ]
+}
