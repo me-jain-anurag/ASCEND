@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ASCEND path enumerator (thin slice).
+ASCEND path enumerator.
 
 Reads an environment-facts file and enumerates every privilege-escalation path
 from the entry foothold to the crown jewel, labelling each edge with its MITRE
@@ -12,7 +12,7 @@ This is the REAL algorithm (a depth-first search over the attacker's
 enumeration actually work?"). Only the input is small; the same code scales to
 the collected facts of the full lab.
 
-No third-party dependencies. Run:  python3 enumerator/enumerate.py
+No third-party dependencies. Run:  python3 enumerator/pathfinder.py
 Outputs:  eval/analysis.json  and  dashboard/data.js
 """
 
@@ -139,9 +139,14 @@ def enumerate_paths(facts, max_depth=12):
 
 
 def chokepoint(paths):
-    """Minimal chokepoint step: count how many paths each vector lies on, then
-    rank fixes by how many paths their removal eliminates. (Greedy single-fix
-    view — the full engine in Semester 2 does weighted set-cover.)"""
+    """Convenience summary for the command-line report: how many paths each
+    vector lies on.
+
+    This is a COUNTER, not the remediation engine. It infers a fix's effect from
+    the graph; chokepoint/engine.py measures it by removing the fix from a copy
+    of the facts and re-running enumerate_paths(). The service and dashboard use
+    the engine. This stays here so `python3 enumerator/pathfinder.py` gives a
+    useful answer on its own, with no dependencies."""
     total = len(paths)
     counts = {}
     labels = {}
@@ -167,12 +172,12 @@ def chokepoint(paths):
 
 
 def build_graph(facts):
-    """Nodes and edges for the dashboard network view."""
-    nodes = []
-    for h in facts["hosts"]:
-        for label, priv in ((node_label(h["hostname"], "low"), "low"),):
-            pass
-    # one node per (host) plus credential nodes; privilege shown as annotation
+    """Nodes and edges for the dashboard network view.
+
+    One node per host; privilege is shown as an annotation rather than as a
+    separate node, because the dashboard draws a network, not the state space
+    the search actually walks.
+    """
     node_ids = set()
     edges = []
     for r in facts["reachability"]:
@@ -195,19 +200,52 @@ def build_graph(facts):
 
 
 def path_precision(facts, paths):
-    """Path-finder precision (thin slice): every vector in this illustrative
-    facts file carries verified_exploitable=true, so all enumerated paths are
-    'verified'. In the full system this fraction comes from actually executing
-    each path in the lab."""
-    verified_map = {v["vector_id"]: v.get("verified_exploitable", False)
-                    for v in facts["vectors"]}
-    verified = 0
-    for path in paths:
+    """Two different claims, reported separately, because conflating them is the
+    easiest way for this project to overstate what it knows.
+
+    config_coverage  — the fraction of enumerated paths whose every vector has
+                       the configuration the technique requires. This is what a
+                       collector can establish by reading a host. It says "the
+                       door is unlocked", not "we walked through it".
+
+    precision        — the fraction of paths that were VERIFIED BY EXECUTION.
+                       Only the verifier can raise this above zero. Until
+                       verifier/ exists it is 0, and that is the correct value
+                       to display rather than a placeholder.
+
+    A vector's `config_exploitable` is set by collectors/derive.py. The older
+    hand-written facts files carry only `verified_exploitable`; for those it is
+    read as a configuration claim, since nothing in them was ever executed.
+    """
+    executed = {}
+    configured = {}
+    for v in facts["vectors"]:
+        vid = v["vector_id"]
+        executed[vid] = v.get("verified_exploitable") is True
+        if v.get("config_exploitable") is not None:
+            configured[vid] = bool(v["config_exploitable"])
+        else:
+            configured[vid] = bool(v.get("verified_exploitable"))
+
+    def all_true(path, table):
         vids = [s["vector_id"] for s in path if s.get("vector_id")]
-        if all(verified_map.get(v, False) for v in vids):
-            verified += 1
-    return {"proposed": len(paths), "verified": verified,
-            "precision": (verified / len(paths)) if paths else 0.0}
+        return all(table.get(v, False) for v in vids)
+
+    total = len(paths)
+    verified = sum(1 for p in paths if all_true(p, executed))
+    covered = sum(1 for p in paths if all_true(p, configured))
+
+    return {
+        "proposed": total,
+        "verified": verified,
+        "precision": (verified / total) if total else 0.0,
+        "config_covered": covered,
+        "config_coverage": (covered / total) if total else 0.0,
+        "verification_status": (
+            "none" if verified == 0 else
+            "complete" if verified == total else "partial"
+        ),
+    }
 
 
 def main():
@@ -230,7 +268,7 @@ def main():
     with open(ANALYSIS, "w") as f:
         json.dump(result, f, indent=2)
     with open(DATA_JS, "w") as f:
-        f.write("// Generated by enumerator/enumerate.py — do not edit by hand.\n")
+        f.write("// Generated by enumerator/pathfinder.py — do not edit by hand.\n")
         f.write("window.ASCEND_DATA = ")
         json.dump(result, f, indent=2)
         f.write(";\n")
@@ -244,8 +282,14 @@ def main():
         for step in path:
             print(f"    {step['from']:>16}  --[{step['technique']}]-->  {step['to']}")
         print()
-    print(f"Path-finder precision (verified / proposed): "
-          f"{precision['verified']}/{precision['proposed']} = {precision['precision']:.2f}\n")
+    print(f"Config coverage (paths whose vectors are all config-present): "
+          f"{precision['config_covered']}/{precision['proposed']} = "
+          f"{precision['config_coverage']:.2f}")
+    print(f"Path-finder precision (EXECUTION-verified / proposed): "
+          f"{precision['verified']}/{precision['proposed']} = "
+          f"{precision['precision']:.2f}"
+          + ("   <- no verifier has run; this is the honest value, not a gap"
+             if precision["verification_status"] == "none" else "") + "\n")
     print("Chokepoints (fixes ranked by paths eliminated):")
     for c in ranking:
         print(f"    {c['vector_id']:<24} kills {c['paths_eliminated_if_fixed']}/"

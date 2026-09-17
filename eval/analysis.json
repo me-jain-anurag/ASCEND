@@ -34,14 +34,26 @@
     ],
     "edges": [
       {
-        "source": "web01",
-        "target": "app01",
+        "source": "app01",
+        "target": "db01",
         "kind": "reach",
         "label": "ssh/22"
       },
       {
         "source": "app01",
-        "target": "db01",
+        "target": "web01",
+        "kind": "reach",
+        "label": "ssh/22"
+      },
+      {
+        "source": "db01",
+        "target": "app01",
+        "kind": "reach",
+        "label": "ssh/22"
+      },
+      {
+        "source": "web01",
+        "target": "app01",
         "kind": "reach",
         "label": "ssh/22"
       }
@@ -54,7 +66,7 @@
         "to": "cred:app_deploy_key",
         "technique": "T1552.001",
         "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_readable_key"
+        "vector_id": "v_web01_credfile_id_rsa"
       },
       {
         "from": "web01:low",
@@ -76,7 +88,7 @@
         "from": "app01:low",
         "to": "app01:root",
         "technique": "T1548.003",
-        "technique_name": "Sudo Caching / Sudo Misconfiguration",
+        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
         "vector_id": "v_app01_sudo_tar"
       },
       {
@@ -84,7 +96,7 @@
         "to": "db01:root",
         "technique": "T1068",
         "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
-        "vector_id": "v_db01_dirtypipe"
+        "vector_id": "v_db01_kernel_cve_2022_0847"
       }
     ],
     [
@@ -93,7 +105,7 @@
         "to": "cred:app_deploy_key",
         "technique": "T1552.001",
         "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_readable_key"
+        "vector_id": "v_web01_credfile_id_rsa"
       },
       {
         "from": "web01:low",
@@ -116,7 +128,7 @@
         "to": "db01:root",
         "technique": "T1068",
         "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
-        "vector_id": "v_db01_dirtypipe"
+        "vector_id": "v_db01_kernel_cve_2022_0847"
       }
     ],
     [
@@ -125,7 +137,7 @@
         "to": "cred:app_deploy_key",
         "technique": "T1552.001",
         "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_readable_key"
+        "vector_id": "v_web01_credfile_id_rsa"
       },
       {
         "from": "web01:low",
@@ -139,11 +151,11 @@
         "from": "app01:low",
         "to": "app01:root",
         "technique": "T1548.003",
-        "technique_name": "Sudo Caching / Sudo Misconfiguration",
+        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
         "vector_id": "v_app01_sudo_tar"
       },
       {
-        "from": "app01:low",
+        "from": "app01:root",
         "to": "db01:low",
         "technique": "T1021.004+T1550",
         "technique_name": "Remote Services: SSH (reused credential)",
@@ -155,20 +167,20 @@
         "to": "db01:root",
         "technique": "T1068",
         "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
-        "vector_id": "v_db01_dirtypipe"
+        "vector_id": "v_db01_kernel_cve_2022_0847"
       }
     ]
   ],
   "chokepoints": [
     {
-      "vector_id": "v_web01_readable_key",
+      "vector_id": "v_web01_credfile_id_rsa",
       "on_paths": 3,
       "total_paths": 3,
       "paths_eliminated_if_fixed": 3,
       "technique": "T1552.001 \u2014 Unsecured Credentials in Files"
     },
     {
-      "vector_id": "v_db01_dirtypipe",
+      "vector_id": "v_db01_kernel_cve_2022_0847",
       "on_paths": 3,
       "total_paths": 3,
       "paths_eliminated_if_fixed": 3,
@@ -179,12 +191,15 @@
       "on_paths": 2,
       "total_paths": 3,
       "paths_eliminated_if_fixed": 2,
-      "technique": "T1548.003 \u2014 Sudo Caching / Sudo Misconfiguration"
+      "technique": "T1548.003 \u2014 Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
     }
   ],
   "path_finder": {
     "proposed": 3,
-    "verified": 3,
-    "precision": 1.0
+    "verified": 0,
+    "precision": 0.0,
+    "config_covered": 3,
+    "config_coverage": 1.0,
+    "verification_status": "none"
   }
 }
