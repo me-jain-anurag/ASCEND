@@ -1,0 +1,69 @@
+# ASCEND isolated lab — docs/02 section 6, docs/05 section 1.
+#
+# Three Linux containers on TWO private bridge networks, both `internal: true`
+# (no route to the internet or the campus network). The two-network layout is
+# deliberate: app01 is dual-homed, so web01 can reach app01 and app01 can reach
+# db01, but web01 CANNOT reach db01. collectors/probes/reachability.py discovers
+# that segmentation by attempting real TCP connections — it is not declared.
+#
+#   [ dmz ]  web01 ──► app01 ──► db01  [ core ]
+#              entry            crown jewel
+#
+# No ports are published to the host. Nothing here is reachable from outside the
+# Docker bridges. Bring it up with ./lab/up.sh (which generates the deploy key
+# first); tear it down with ./lab/down.sh.
+
+name: ascend-lab
+
+services:
+
+  web01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROLE: web01
+        # Containers share the host kernel, so `uname -r` cannot differ per
+        # host. This is the DECLARED kernel, written to /etc/ascend/declared_kernel
+        # and tagged provenance: declared by probes/kernel.py. See lab/README.md.
+        DECLARED_KERNEL: "5.4.0"
+    container_name: ascend-web01
+    hostname: web01
+    networks: [dmz]
+    restart: unless-stopped
+
+  app01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROLE: app01
+        # A PATCHED 5.10 branch kernel (fix landed in 5.10.102). This is
+        # deliberate: it proves the T1068 rule is branch-aware and declines to
+        # flag a host that a naive "below 5.16.11" check would call vulnerable.
+        DECLARED_KERNEL: "5.10.150"
+    container_name: ascend-app01
+    hostname: app01
+    networks: [dmz, core]      # dual-homed: the pivot between the two segments
+    restart: unless-stopped
+
+  db01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROLE: db01
+        # 5.16.0 < 5.16.11, so rules.kernel in scope.yaml matches CVE-2022-0847.
+        DECLARED_KERNEL: "5.16.0"
+    container_name: ascend-db01
+    hostname: db01
+    networks: [core]
+    restart: unless-stopped
+
+networks:
+  dmz:
+    name: ascend_dmz
+    internal: true
+  core:
+    name: ascend_core
+    internal: true

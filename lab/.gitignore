@@ -1,0 +1,3 @@
+# The deploy keypair is generated per-clone by bootstrap.sh and MUST NOT be
+# committed — even though it only ever authenticates to throwaway containers.
+keys/
