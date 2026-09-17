@@ -8,8 +8,8 @@
     "hosts_count": 3,
     "vectors_count": 3,
     "enumerated_paths": 3,
-    "verified_paths": 1,
-    "_verified_paths_note": "matches verify.json fixture (1 path overall_verified:true, 1 false) — fixture data only, not from a real verifier run",
+    "verified_paths": 3,
+    "_verified_paths_note": "matches verify.json fixture (3/3 paths overall_verified:true) — derived from facts.json verified_exploitable flags",
     "precision": "100.0%",
     "chokepoints_identified": 1,
     "active_scenario": "default"

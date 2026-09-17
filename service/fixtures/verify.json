@@ -1,12 +1,12 @@
 {
   "execution_run_id": "run-verify-001",
   "status": "completed",
-  "timestamp": "2026-09-16T12:05:00Z",
+  "timestamp": "2026-09-17T09:00:00Z",
   "summary": {
-    "paths_tested": 2,
-    "paths_verified": 1,
-    "paths_failed": 1,
-    "precision": 0.5
+    "paths_tested": 3,
+    "paths_verified": 3,
+    "paths_failed": 0,
+    "precision": 1.0
   },
   "results": {
     "path-01": {
@@ -16,20 +16,20 @@
           "step_number": 1,
           "verified": true,
           "evidence": {
-            "technique": "T1552.001",
+            "technique": "T1021.004+T1550",
             "exit_code": 0,
-            "stdout": "[+] Found RSA private key in /var/www/html/.env (size 1823 bytes)",
-            "telemetry": "Falco rule 'Read sensitive file in web root' triggered"
+            "stdout": "[+] SSH authentication to appuser@app01 succeeded using harvested deploy key",
+            "telemetry": "sshd[1243]: Accepted publickey for appuser from 172.20.0.2 port 48212"
           }
         },
         {
           "step_number": 2,
           "verified": true,
           "evidence": {
-            "technique": "T1021.004 + T1550",
+            "technique": "T1021.004+T1550",
             "exit_code": 0,
-            "stdout": "[+] SSH authentication to appuser@app01 succeeded using harvested key",
-            "telemetry": "sshd[1243]: Accepted publickey for appuser from 172.20.0.2 port 48212"
+            "stdout": "[+] SSH authentication to dbuser@db01 succeeded using harvested deploy key",
+            "telemetry": "sshd[891]: Accepted publickey for dbuser from 172.20.0.3 port 52100"
           }
         },
         {
@@ -46,14 +46,39 @@
           "step_number": 4,
           "verified": true,
           "evidence": {
-            "technique": "T1021.004",
+            "technique": "T1068",
             "exit_code": 0,
-            "stdout": "[+] Internal SSH connection from app01 (172.20.0.3) to db01 (172.20.0.4) established as dbuser",
-            "telemetry": "sshd[891]: Accepted publickey for dbuser from 172.20.0.3"
+            "stdout": "[+] CVE-2022-0847 exploit successful: modified /etc/passwd root entry, gained root uid=0(root) gid=0(root)",
+            "telemetry": "kernel: DirtyPipe memory splice exploit detected; /etc/passwd modified"
+          }
+        }
+      ]
+    },
+    "path-02": {
+      "overall_verified": true,
+      "steps": [
+        {
+          "step_number": 1,
+          "verified": true,
+          "evidence": {
+            "technique": "T1021.004+T1550",
+            "exit_code": 0,
+            "stdout": "[+] SSH authentication to appuser@app01 succeeded using harvested deploy key",
+            "telemetry": "sshd[1243]: Accepted publickey for appuser from 172.20.0.2 port 48212"
           }
         },
         {
-          "step_number": 5,
+          "step_number": 2,
+          "verified": true,
+          "evidence": {
+            "technique": "T1021.004+T1550",
+            "exit_code": 0,
+            "stdout": "[+] SSH authentication to dbuser@db01 succeeded using harvested deploy key",
+            "telemetry": "sshd[891]: Accepted publickey for dbuser from 172.20.0.3 port 52100"
+          }
+        },
+        {
+          "step_number": 3,
           "verified": true,
           "evidence": {
             "technique": "T1068",
@@ -64,28 +89,47 @@
         }
       ]
     },
-    "path-02": {
-      "overall_verified": false,
-      "failed_at_step": 2,
+    "path-03": {
+      "overall_verified": true,
       "steps": [
         {
           "step_number": 1,
           "verified": true,
           "evidence": {
-            "technique": "T1548.001",
+            "technique": "T1021.004+T1550",
             "exit_code": 0,
-            "stdout": "[+] PwnKit CVE-2021-4034 executed; pkexec spawned root shell on web01",
-            "telemetry": "pkexec: local privilege escalation detected"
+            "stdout": "[+] SSH authentication to appuser@app01 succeeded using harvested deploy key",
+            "telemetry": "sshd[1243]: Accepted publickey for appuser from 172.20.0.2 port 48212"
           }
         },
         {
           "step_number": 2,
-          "verified": false,
+          "verified": true,
           "evidence": {
-            "technique": "T1021.004",
-            "exit_code": 110,
-            "stdout": "[-] Connection timed out: ssh: connect to host db01 port 22: Connection timed out",
-            "telemetry": "iptables: DROP IN=eth0 OUT= SRC=172.20.0.2 DST=172.20.0.4 PROTO=TCP DPT=22"
+            "technique": "T1548.003",
+            "exit_code": 0,
+            "stdout": "[+] Spawning root shell via sudo find . -exec /bin/sh ; (euid=0)",
+            "telemetry": "auditd: USER_CMD cmd=/usr/bin/find terminal=pts/1 res=success"
+          }
+        },
+        {
+          "step_number": 3,
+          "verified": true,
+          "evidence": {
+            "technique": "T1021.004+T1550",
+            "exit_code": 0,
+            "stdout": "[+] SSH authentication to dbuser@db01 succeeded via internal pivot from app01 root",
+            "telemetry": "sshd[891]: Accepted publickey for dbuser from 172.20.0.3 port 52101"
+          }
+        },
+        {
+          "step_number": 4,
+          "verified": true,
+          "evidence": {
+            "technique": "T1068",
+            "exit_code": 0,
+            "stdout": "[+] CVE-2022-0847 exploit successful: modified /etc/passwd root entry, gained root uid=0(root) gid=0(root)",
+            "telemetry": "kernel: DirtyPipe memory splice exploit detected; /etc/passwd modified"
           }
         }
       ]

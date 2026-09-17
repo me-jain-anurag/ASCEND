@@ -38,6 +38,11 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
         const isExpanded = expanded === path.path_id;
         const isSelected = selectedPathId === path.path_id;
         const verResult = verifyData?.results[path.path_id];
+        // Fall back to overall_verified from the enumerate API (derived from facts.json)
+        // so paths not yet in verify.json still display the correct status.
+        const isVerified = verResult !== undefined
+          ? verResult.overall_verified
+          : path.overall_verified;
         const rc = riskClass(path.risk_score);
 
         return (
@@ -53,9 +58,9 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
             <div className="path-item-header">
               {/* Verified badge */}
               <div style={{ flexShrink: 0 }}>
-                {verResult === undefined ? (
+                {isVerified === null || isVerified === undefined ? (
                   <span className="tag tag-gray">Unverified</span>
-                ) : verResult.overall_verified ? (
+                ) : isVerified ? (
                   <span className="tag tag-red" style={{ gap: 4 }}>
                     <CheckCircle size={10} /> Verified
                   </span>
