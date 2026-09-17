@@ -1,0 +1,53 @@
+{
+  "total_verified_paths": 1,
+  "ranked_fixes": [
+    {
+      "fix_id": "fix-01",
+      "rank": 1,
+      "title": "Revoke & Remove Deploy Key from web01",
+      "chokepoint_type": "Credential Invalidation",
+      "target_host": "web01",
+      "target_vector": "vec-web-01",
+      "technique_broken": "T1552.001 / T1550",
+      "cost": 1,
+      "description": "Delete world-readable .env file on web01 and revoke the corresponding SSH key in app01 authorized_keys.",
+      "paths_eliminated": ["path-01"],
+      "efficacy_percentage": 100.0,
+      "is_recommended_chokepoint": true
+    },
+    {
+      "fix_id": "fix-02",
+      "rank": 2,
+      "title": "Revoke NOPASSWD Sudo Rule on app01",
+      "chokepoint_type": "Privilege Restriction",
+      "target_host": "app01",
+      "target_vector": "vec-app-01",
+      "technique_broken": "T1548.003",
+      "cost": 2,
+      "description": "Remove the sudoers entry allowing appuser to execute /usr/bin/find without authentication.",
+      "paths_eliminated": ["path-01"],
+      "efficacy_percentage": 100.0,
+      "is_recommended_chokepoint": false
+    },
+    {
+      "fix_id": "fix-03",
+      "rank": 3,
+      "title": "Patch Linux Kernel (DirtyPipe) on db01",
+      "chokepoint_type": "Vulnerability Remediation",
+      "target_host": "db01",
+      "target_vector": "vec-db-01",
+      "technique_broken": "T1068",
+      "cost": 5,
+      "description": "Upgrade kernel to >= 5.16.11 or backported distribution patch to eliminate CVE-2022-0847 DirtyPipe.",
+      "paths_eliminated": ["path-01"],
+      "efficacy_percentage": 100.0,
+      "is_recommended_chokepoint": false
+    }
+  ],
+  "efficacy_curve": [
+    { "fixes_applied": 0, "paths_remaining": 1, "paths_eliminated": 0, "reduction_pct": 0 },
+    { "fixes_applied": 1, "paths_remaining": 0, "paths_eliminated": 1, "reduction_pct": 100 },
+    { "fixes_applied": 2, "paths_remaining": 0, "paths_eliminated": 1, "reduction_pct": 100 },
+    { "fixes_applied": 3, "paths_remaining": 0, "paths_eliminated": 1, "reduction_pct": 100 }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "system": "ASCEND Analysis Core",
+  "version": "1.0.0-rc1",
+  "status": "ready",
+  "lab_environment": "isolated-docker-network",
+  "summary_metrics": {
+    "hosts_count": 4,
+    "vectors_count": 4,
+    "enumerated_paths": 2,
+    "verified_paths": 1,
+    "precision": "50.0%",
+    "chokepoints_identified": 1,
+    "active_scenario": "default"
+  }
+}

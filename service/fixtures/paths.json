@@ -1,0 +1,185 @@
+{
+  "scenarios": {
+    "default": {
+      "name": "Standard Adversary Emulation",
+      "entry_point": "web01",
+      "crown_jewel": "db01",
+      "paths": [
+        {
+          "path_id": "path-01",
+          "name": "Crown Jewel Escalation via Credential Reuse & DirtyPipe",
+          "length": 5,
+          "entry_host": "web01",
+          "crown_jewel_host": "db01",
+          "overall_verified": null,
+          "risk_score": 9.4,
+          "steps": [
+            {
+              "step_number": 1,
+              "source_host": "web01",
+              "source_account": { "username": "www-data", "type": "service", "privilege_level": 1 },
+              "target_host": "web01",
+              "target_account": { "username": "www-data", "type": "service", "privilege_level": 1 },
+              "vector": {
+                "vector_id": "vec-web-01",
+                "technique": "T1552.001",
+                "technique_name": "Unsecured Credentials: Credentials in Files",
+                "cve": null,
+                "cvss": 5.5,
+                "features": { "file": "/var/www/html/.env", "type": "stored_ssh_key" },
+                "verified_exploitable": null
+              },
+              "credential": {
+                "cred_id": "cred-deploy-key",
+                "type": "ssh_key",
+                "discoverable_at": "world-readable config file (.env)"
+              },
+              "description": "Read app deploy private SSH key from /var/www/html/.env",
+              "verified": null
+            },
+            {
+              "step_number": 2,
+              "source_host": "web01",
+              "source_account": { "username": "www-data", "type": "service", "privilege_level": 1 },
+              "target_host": "app01",
+              "target_account": { "username": "appuser", "type": "service", "privilege_level": 1 },
+              "vector": {
+                "vector_id": "vec-lat-01",
+                "technique": "T1021.004 + T1550",
+                "technique_name": "SSH Lateral Movement via Credential Reuse",
+                "cve": null,
+                "cvss": 7.0,
+                "features": { "destination_port": 22, "auth_mechanism": "reused_ssh_key" },
+                "verified_exploitable": null
+              },
+              "credential": {
+                "cred_id": "cred-deploy-key",
+                "type": "ssh_key",
+                "discoverable_at": "app01 authorized_keys matches harvested deploy key"
+              },
+              "description": "SSH from web01 to app01 reusing harvested deploy key as appuser",
+              "verified": null
+            },
+            {
+              "step_number": 3,
+              "source_host": "app01",
+              "source_account": { "username": "appuser", "type": "service", "privilege_level": 1 },
+              "target_host": "app01",
+              "target_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "vector": {
+                "vector_id": "vec-app-01",
+                "technique": "T1548.003",
+                "technique_name": "Sudo and Sudo Caching: Misconfigured NOPASSWD",
+                "cve": null,
+                "cvss": 6.8,
+                "features": { "command": "sudo /usr/bin/find -exec /bin/sh \\;", "elevation": "root" },
+                "verified_exploitable": null
+              },
+              "credential": null,
+              "description": "Exploit over-permissive sudo rule on app01 to escalate from appuser to root",
+              "verified": null
+            },
+            {
+              "step_number": 4,
+              "source_host": "app01",
+              "source_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "target_host": "db01",
+              "target_account": { "username": "dbuser", "type": "service", "privilege_level": 1 },
+              "vector": {
+                "vector_id": "vec-lat-02",
+                "technique": "T1021.004",
+                "technique_name": "Remote Services: SSH",
+                "cve": null,
+                "cvss": 5.3,
+                "features": { "destination_port": 22, "known_host": true },
+                "verified_exploitable": null
+              },
+              "credential": {
+                "cred_id": "cred-dbuser-key",
+                "type": "ssh_key",
+                "discoverable_at": "/root/.ssh/id_rsa on app01"
+              },
+              "description": "Pivot from app01 to db01 over internal SSH service as dbuser",
+              "verified": null
+            },
+            {
+              "step_number": 5,
+              "source_host": "db01",
+              "source_account": { "username": "dbuser", "type": "service", "privilege_level": 1 },
+              "target_host": "db01",
+              "target_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "vector": {
+                "vector_id": "vec-db-01",
+                "technique": "T1068",
+                "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
+                "cve": "CVE-2022-0847",
+                "cvss": 7.8,
+                "features": { "kernel": "5.16.10-dirtypipe", "flaw": "pipe page cache write" },
+                "verified_exploitable": null
+              },
+              "credential": null,
+              "description": "Trigger DirtyPipe (CVE-2022-0847) to overwrite root password entry in /etc/passwd",
+              "verified": null
+            }
+          ]
+        },
+        {
+          "path_id": "path-02",
+          "name": "Direct Lateral Pivot Attempt (Firewall Blocked)",
+          "length": 2,
+          "entry_host": "web01",
+          "crown_jewel_host": "db01",
+          "overall_verified": null,
+          "risk_score": 4.1,
+          "steps": [
+            {
+              "step_number": 1,
+              "source_host": "web01",
+              "source_account": { "username": "www-data", "type": "service", "privilege_level": 1 },
+              "target_host": "web01",
+              "target_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "vector": {
+                "vector_id": "vec-web-02",
+                "technique": "T1548.001",
+                "technique_name": "Setuid and Setgid: PwnKit Polkit Escalation",
+                "cve": "CVE-2021-4034",
+                "cvss": 7.8,
+                "features": { "binary": "/usr/bin/pkexec", "suid": true },
+                "verified_exploitable": null
+              },
+              "credential": null,
+              "description": "Local privilege escalation on web01 using PwnKit",
+              "verified": null
+            },
+            {
+              "step_number": 2,
+              "source_host": "web01",
+              "source_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "target_host": "db01",
+              "target_account": { "username": "root", "type": "root", "privilege_level": 3 },
+              "vector": {
+                "vector_id": "vec-direct-ssh",
+                "technique": "T1021.004",
+                "technique_name": "Direct Remote Services: SSH",
+                "cve": null,
+                "cvss": 3.0,
+                "features": { "destination_port": 22, "segmentation": "cross-subnet" },
+                "verified_exploitable": null
+              },
+              "credential": null,
+              "description": "Attempt direct root SSH traversal from web01 subnet to db01",
+              "verified": null
+            }
+          ]
+        }
+      ]
+    },
+    "benign": {
+      "name": "Benign Maintenance Scenario (Legitimate SSH)",
+      "entry_point": "admin01",
+      "crown_jewel": "db01",
+      "paths": [],
+      "description": "Administrative maintenance SSH session from admin01 to app01. No privilege escalation or unauthorized movement detected. Zero attack paths to crown jewel."
+    }
+  }
+}
