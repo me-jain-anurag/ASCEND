@@ -10,7 +10,7 @@ from pydantic import BaseModel
 _ENUMERATOR_DIR = str(Path(__file__).resolve().parent.parent / "enumerator")
 if _ENUMERATOR_DIR not in sys.path:
     sys.path.insert(0, _ENUMERATOR_DIR)
-from enumerate import enumerate_paths as _enumerate_paths, path_precision as _path_precision
+from enumerate import enumerate_paths as _enumerate_paths, path_precision as _path_precision, chokepoint as _chokepoint
 
 app = FastAPI(
     title="ASCEND Analysis Core API",
@@ -29,6 +29,28 @@ app.add_middleware(
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 FACTS_PATH   = Path(__file__).resolve().parent.parent / "environment_graph" / "facts.json"
+
+# Human-readable fix metadata keyed by vector_id (the rest is derived live).
+_FIX_META: dict[str, dict] = {
+    "v_web01_readable_key": {
+        "title": "Revoke & Remove Deploy Key from web01",
+        "chokepoint_type": "Credential Invalidation",
+        "description": "Delete world-readable .env file on web01 and revoke the corresponding SSH key in app01 authorized_keys.",
+        "cost": 1,
+    },
+    "v_app01_sudo_tar": {
+        "title": "Revoke NOPASSWD Sudo Rule on app01",
+        "chokepoint_type": "Privilege Restriction",
+        "description": "Remove the sudoers entry allowing appuser to execute /usr/bin/find without authentication.",
+        "cost": 2,
+    },
+    "v_db01_dirtypipe": {
+        "title": "Patch Linux Kernel (DirtyPipe) on db01",
+        "chokepoint_type": "Vulnerability Remediation",
+        "description": "Upgrade kernel to >= 5.16.11 or backported distribution patch to eliminate CVE-2022-0847 DirtyPipe.",
+        "cost": 5,
+    },
+}
 
 def load_fixture(name: str) -> dict:
     file_path = FIXTURES_DIR / name
@@ -249,7 +271,22 @@ def _build_paths_from_enumerator(facts: dict) -> list:
         entry = facts["entry"]
         crown = facts["crown_jewel"]
         techniques = [st["vector"]["technique"] for st in steps]
-        risk = round(max(cvss_values), 1) if cvss_values else 0.0
+        # Risk = max CVSS penalised by path complexity: every additional distinct
+        # exploitable vector required reduces the score by 0.3 (a shorter / simpler
+        # path is easier to execute and therefore more dangerous).
+        _unique_vids = len({s["vector_id"] for s in host_steps if s["vector_id"] is not None})
+        risk = round(max(cvss_values) - max(0, _unique_vids - 1) * 0.3, 1) if cvss_values else 0.0
+
+        # Derive overall_verified from facts: a path is verified when every
+        # named vector it passes through has verified_exploitable=True.
+        _verifiable = [s for s in host_steps if s["vector_id"] is not None]
+        _overall_verified = (
+            all(
+                vector_map.get(s["vector_id"], {}).get("verified_exploitable", False)
+                for s in _verifiable
+            )
+            if _verifiable else None
+        )
 
         result.append({
             "path_id":         f"path-{path_idx:02d}",
@@ -257,7 +294,7 @@ def _build_paths_from_enumerator(facts: dict) -> list:
             "length":          len(steps),
             "entry_host":      entry["host"],
             "crown_jewel_host": crown["host"],
-            "overall_verified": None,
+            "overall_verified": _overall_verified,
             "risk_score":      risk,
             "steps":           steps,
         })
@@ -327,35 +364,116 @@ def verify_paths():
     verify_data = load_fixture("verify.json")
     return verify_data
 
+
+def _build_remediation_from_enumerator(facts: dict) -> dict:
+    """
+    Derives the ranked-fix list and efficacy curve live from the enumerator's
+    chokepoint() function, so path counts and efficacy percentages always match
+    the real enumeration output rather than a stale fixture.
+
+    Fix titles / descriptions / costs come from the _FIX_META lookup dict;
+    everything else (paths_eliminated, efficacy_percentage, total_verified_paths)
+    is computed here.
+    """
+    raw_paths = _enumerate_paths(facts)
+    total = len(raw_paths)
+    chokepoints = _chokepoint(raw_paths)
+
+    # Map vector_id → list of path-XX ids that contain it (from raw paths)
+    vector_to_path_ids: dict[str, list[str]] = {}
+    for idx, raw_path in enumerate(raw_paths, 1):
+        pid = f"path-{idx:02d}"
+        seen: set[str] = set()
+        for step in raw_path:
+            vid = step.get("vector_id")
+            if vid and vid not in seen:
+                vector_to_path_ids.setdefault(vid, []).append(pid)
+                seen.add(vid)
+
+    # Look up vector host from facts for target_host field
+    vec_host_map = {v["vector_id"]: v.get("host", "") for v in facts.get("vectors", [])}
+    vec_tech_map = {v["vector_id"]: v.get("technique", "") for v in facts.get("vectors", [])}
+
+    ranked_fixes = []
+    for rank_idx, cp in enumerate(chokepoints, 1):
+        vid = cp["vector_id"]
+        paths_elim = vector_to_path_ids.get(vid, [])
+        efficacy = round(len(paths_elim) / total * 100, 1) if total else 0.0
+        meta = _FIX_META.get(vid, {})
+        ranked_fixes.append({
+            "fix_id":                  f"fix-{rank_idx:02d}",
+            "rank":                    rank_idx,
+            "title":                   meta.get("title", f"Fix {vid}"),
+            "chokepoint_type":         meta.get("chokepoint_type", "Remediation"),
+            "target_host":             vec_host_map.get(vid, ""),
+            "target_vector":           vid,
+            "technique_broken":        vec_tech_map.get(vid, cp["technique"].split(" ")[0]),
+            "cost":                    meta.get("cost", 1),
+            "description":             meta.get("description", ""),
+            "paths_eliminated":        paths_elim,
+            "efficacy_percentage":     efficacy,
+            "is_recommended_chokepoint": rank_idx == 1,
+        })
+
+    # Greedy efficacy curve: accumulate eliminated path IDs in fix order
+    eliminated: set[str] = set()
+    efficacy_curve = [{"fixes_applied": 0, "paths_remaining": total,
+                       "paths_eliminated": 0, "reduction_pct": 0}]
+    for fix in ranked_fixes:
+        eliminated.update(fix["paths_eliminated"])
+        remaining = total - len(eliminated)
+        efficacy_curve.append({
+            "fixes_applied":    fix["rank"],
+            "paths_remaining":  remaining,
+            "paths_eliminated": len(eliminated),
+            "reduction_pct":    round(len(eliminated) / total * 100) if total else 0,
+        })
+
+    return {
+        "total_verified_paths": total,
+        "ranked_fixes":         ranked_fixes,
+        "efficacy_curve":       efficacy_curve,
+    }
+
+
 @app.get("/api/remediation")
 def get_remediation():
-    """Returns ranked fixes and fixes-vs-paths efficacy curve."""
-    # TODO(Part A/B): replace fixture read with call into chokepoint
-    remediation_data = load_fixture("remediation.json")
-    return remediation_data
+    """Returns ranked fixes and fixes-vs-paths efficacy curve.
+
+    Data source: calls enumerator.chokepoint() in-process against
+    environment_graph/facts.json. Replaces the fixture-based remediation.json read.
+    """
+    facts = _load_facts()
+    return _build_remediation_from_enumerator(facts)
 
 @app.post("/api/remediation/apply")
 def apply_remediation(req: ApplyFixRequest):
-    """Applies a fix and returns eliminated attack paths."""
-    # TODO(Part A/B): replace fixture read with call into chokepoint
-    remediation_data = load_fixture("remediation.json")
-    target_fix = next((f for f in remediation_data.get("ranked_fixes", []) if f["fix_id"] == req.fix_id), None)
-    
+    """Applies a fix and returns eliminated attack paths.
+
+    Looks up the fix from live remediation data so path counts are always current.
+    """
+    facts = _load_facts()
+    remediation_data = _build_remediation_from_enumerator(facts)
+    target_fix = next(
+        (f for f in remediation_data.get("ranked_fixes", []) if f["fix_id"] == req.fix_id),
+        None
+    )
+
     if not target_fix:
         raise HTTPException(status_code=404, detail=f"Fix {req.fix_id} not found in remediation plan")
-    
+
     if req.fix_id not in state["applied_fixes"]:
         state["applied_fixes"].append(req.fix_id)
         for pid in target_fix.get("paths_eliminated", []):
             if pid not in state["eliminated_path_ids"]:
                 state["eliminated_path_ids"].append(pid)
-                
+
     return {
         "status": "applied",
         "applied_fix": target_fix,
         "all_applied_fixes": state["applied_fixes"],
         "eliminated_path_ids": state["eliminated_path_ids"],
-        "message": f"Chokepoint fix '{target_fix['title']}' applied successfully. {len(state['eliminated_path_ids'])} attack path(s) eliminated."
+        "message": f"Chokepoint fix '{target_fix['title']}' applied successfully. {len(state['eliminated_path_ids'])} attack path(s) eliminated.",
     }
 
 @app.get("/api/status")
