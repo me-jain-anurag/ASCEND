@@ -10,11 +10,22 @@ On this project, **Claude does not execute git or GitHub write actions.** It **d
 and paste them into their own terminal. Read-only inspection (`git status`, `git log`, `git diff`, `gh pr view`,
 `gh api` GET, etc.) may be run normally.
 
+### The one exception: staging and committing
+Claude **may run** `git add` and `git commit`, but **only when the user explicitly asks it to** ("commit this",
+"go ahead and commit"). They are local and recoverable — they touch the index and `.git`, never a remote, and a
+bad commit is undone with a reset. Amending is **not** included: it rewrites a commit that already exists.
+
+This is an exception, not a new default. When the user has not asked for a commit, keep drafting as usual — do not
+commit unprompted after finishing a piece of work, and do not fold a commit into a larger task on your own
+initiative. Everything else — `push`, `switch`/`checkout`, `branch`, `merge`, `rebase`, `reset`, `stash`, `tag`,
+and every `gh` write — is still drafted for a human to run, so a task that needs a new branch still needs one
+pasted command from the user before Claude can commit onto it.
+
 A `PreToolUse` hook (`.claude/hooks/guard_git.py`) enforces this: if a write command is attempted through Bash, the
 hook blocks it. Do not try to work around the hook — drafting is the intended path, not a fallback.
 
 ## When this applies
-Any state-changing git/GitHub command, including: `commit`, `add`, `rm`, `mv`, `push`, `pull`, `fetch`+merge,
+Any state-changing git/GitHub command **except the `add`/`commit` exception above**, including: `rm`, `mv`, `push`, `pull`, `fetch`+merge,
 `merge`, `rebase`, `reset`, `revert`, `cherry-pick`, `branch` (create/delete/move), `checkout`/`switch` (new branch
 or restore), `tag` (create/delete), `stash` (push/pop/apply/drop), `init`, `clone`, `remote` changes, `config`
 writes, `submodule`/`worktree` changes, and GitHub CLI writes: `gh pr create|merge|close|edit|comment|review`,

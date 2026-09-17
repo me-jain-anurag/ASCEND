@@ -13,6 +13,15 @@ command Claude tries to run and BLOCKS it if it contains a git or GitHub-CLI
 WRITE operation, telling Claude to draft the command instead. Anything that is
 not a git/gh write — including all read-only git/gh commands — is allowed.
 
+Exception, relaxed by explicit request: staging and committing MAY be run. Both
+are local and recoverable — they touch only the index and .git, never a remote,
+and a bad commit is undone with a reset. Everything that leaves the machine,
+rewrites history, or moves the working tree stays behind the drafting rule.
+
+This hook is the mechanical floor, not the whole policy: the git-drafter skill
+additionally instructs Claude to run staging and committing only when the user
+asks for it, and to keep drafting everything else by default.
+
 Contract
 --------
 Reads a JSON object on stdin: {"tool_name": "...", "tool_input": {"command": "..."}}
@@ -38,6 +47,12 @@ GIT_READ_ONLY = {
     "range-diff", "show-ref", "show-branch", "annotate", "diff-tree",
     "diff-index", "diff-files", "instaweb", "fetch",  # fetch: read-only network
 }
+
+# ---- git subcommands Claude may RUN (local-only writes) ------------------
+# Permitted by explicit user request. Local, reversible, never touch a remote.
+# Amending is deliberately excluded: it rewrites an existing commit rather than
+# adding a new one.
+GIT_LOCAL_WRITE = {"add", "commit"}
 
 # ---- git subcommands that are read-ONLY only with certain args ----------
 # These need argument inspection: bare/listing form reads, other forms write.
@@ -121,11 +136,29 @@ def classify_git(args):
     if sub in GIT_READ_ONLY:
         return None
 
+    if sub in GIT_LOCAL_WRITE:
+        return classify_git_local_write(sub, rest)
+
     if sub in GIT_CONDITIONAL:
         return classify_git_conditional(sub, rest)
 
     # unknown / everything else -> treat as a write (fail closed)
     return f"`git {sub}` changes repository or remote state"
+
+
+def classify_git_local_write(sub, rest):
+    """Staging and committing are permitted; amending is not.
+
+    An amend replaces a commit that already exists, which is a history change
+    and exactly the kind of thing the drafting rule exists to keep in human
+    hands. A plain commit only ever adds.
+    """
+    if sub == "commit":
+        for a in rest:
+            if a == "--amend" or a.startswith("--amend="):
+                return ("`git commit --amend` rewrites an existing commit "
+                        "(a history change, not a new local commit)")
+    return None
 
 
 def _has_positional(rest):
@@ -243,7 +276,8 @@ def main():
         if reason:
             deny(
                 "BLOCKED by git-drafter: " + reason + ".\n"
-                "Per the team's rule, do not RUN git/GitHub write actions. "
+                "Per the team's rule, do not RUN git/GitHub write actions "
+                "(staging and committing are the only exceptions). "
                 "Instead, invoke the `git-drafter` skill and DRAFT the command "
                 "as a commented, copy-pasteable block for the user to review and "
                 "run themselves. Read-only git/gh inspection is allowed."
