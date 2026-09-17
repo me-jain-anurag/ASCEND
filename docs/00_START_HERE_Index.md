@@ -39,6 +39,16 @@ The single most important idea:
 | 07 | `07_Open_Decisions_and_Risks.md` | Decisions still open (with an owner each) and the honest risk register | Team leads |
 | 08 | `08_Base_Paper_and_Research_Narrative.md` | The base paper (PIGNN, 2025) explained in full for ML/security newcomers, and the narrative to the paper we will publish | The whole team; the paper authors |
 
+### Runbooks (in the repository root, not in `docs/`)
+
+| File | What it is | Primary reader |
+|------|-----------|----------------|
+| `demo.md` | Step-by-step: how to test the pipeline and how to run the demo, in plain terms, with the prepared answers to the questions you will be asked | Whoever is presenting |
+| `QUICKSTART.md` | The shortest path to a working pipeline, with and without Docker | A teammate on a fresh clone |
+| `lab/README.md` | The Docker lab: what is planted, what is deliberately *not* reported, and the container-kernel caveat | Whoever touches the lab |
+| `collectors/README.md` | How facts are collected and how to add a probe or a detection rule | Whoever adds a technique |
+| `enumerator/README.md` | How attack paths are actually found: the attacker state model, the three moves, and the two metrics | Whoever touches the analysis |
+
 ---
 
 ## The one sentence to say to the panel
