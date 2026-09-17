@@ -1,0 +1,257 @@
+# ASCEND — scope.yaml
+# THE SINGLE SOURCE OF TRUTH for: the techniques in scope, the evidence each one
+# is derived from, the lab inventory, and the remediation template per technique.
+#
+# Read by:  collectors/derive.py   (raw facts -> vectors)
+#           chokepoint/engine.py   (vector -> ranked fix)
+# Not read by: enumerator/enumerate.py  (stays stdlib-only, see QUICKSTART.md)
+#
+# Referenced by docs/01 section 4 (the seven techniques) and docs/05 section 6.
+
+version: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. The seven in-scope ATT&CK techniques.
+#
+#    `evidence` names the raw fact a collector probe must observe before the
+#    derivation layer is allowed to emit a vector for this technique. If no
+#    probe reports that evidence, no vector is emitted — the collector never
+#    assumes a weakness is present.
+# ─────────────────────────────────────────────────────────────────────────────
+techniques:
+
+  T1548.001:
+    name: "Abuse Elevation Control Mechanism: Setuid and Setgid"
+    tactic: privilege_escalation
+    kind: privilege_escalation_local
+    evidence: suid_binaries          # probe: probes/suid.py
+    gains_privilege: root
+
+  T1548.003:
+    name: "Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
+    tactic: privilege_escalation
+    kind: privilege_escalation_local
+    evidence: sudo_rules             # probe: probes/sudo.py
+    gains_privilege: root
+
+  T1068:
+    name: "Exploitation for Privilege Escalation"
+    tactic: privilege_escalation
+    kind: privilege_escalation_local
+    evidence: kernel_version         # probe: probes/kernel.py
+    gains_privilege: root
+
+  T1611:
+    name: "Escape to Host"
+    tactic: privilege_escalation
+    kind: privilege_escalation_local
+    evidence: docker_socket          # probe: probes/docker_socket.py
+    gains_privilege: root
+
+  T1021.004:
+    name: "Remote Services: SSH"
+    tactic: lateral_movement
+    kind: lateral_movement
+    evidence: reachability           # probe: probes/reachability.py
+    gains_privilege: null            # privilege comes from the credential used
+
+  T1550:
+    name: "Use Alternate Authentication Material"
+    tactic: lateral_movement
+    kind: lateral_movement
+    evidence: credential_reuse       # probe: probes/ssh_keys.py (fingerprint match)
+    gains_privilege: null
+
+  T1552.001:
+    name: "Unsecured Credentials in Files"
+    tactic: credential_access
+    kind: credential_access
+    evidence: readable_credential_file   # probe: probes/cred_files.py
+    gains_privilege: null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Derivation rules — the conditions under which a raw fact becomes a vector.
+# ─────────────────────────────────────────────────────────────────────────────
+rules:
+
+  # A sudo rule is only a vector if it runs NOPASSWD *and* the target binary has
+  # a documented shell-escape (GTFOBins). A NOPASSWD rule for /bin/ls is not a
+  # privilege-escalation vector and must not be reported as one.
+  sudo:
+    require_nopasswd: true
+    shell_escape_binaries:
+      - /bin/tar
+      - /usr/bin/tar
+      - /usr/bin/find
+      - /bin/find
+      - /usr/bin/vim
+      - /usr/bin/vi
+      - /usr/bin/nano
+      - /usr/bin/awk
+      - /usr/bin/gawk
+      - /usr/bin/python3
+      - /usr/bin/python
+      - /usr/bin/perl
+      - /usr/bin/less
+      - /usr/bin/more
+      - /bin/sed
+      - /usr/bin/sed
+      - /usr/bin/env
+      - /bin/bash
+      - /bin/sh
+      - ALL
+    cvss: 7.8
+
+  # SUID: only flag binaries that are BOTH outside the distribution baseline AND
+  # known to be escapable. Without the baseline every Debian host would report a
+  # dozen false vectors (su, sudo, mount, passwd, ...).
+  suid:
+    baseline:
+      - /usr/bin/su
+      - /usr/bin/sudo
+      - /usr/bin/passwd
+      - /usr/bin/chfn
+      - /usr/bin/chsh
+      - /usr/bin/gpasswd
+      - /usr/bin/newgrp
+      - /usr/bin/mount
+      - /usr/bin/umount
+      - /usr/lib/openssh/ssh-keysign
+      - /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+      - /usr/bin/pkexec
+    shell_escape_binaries:
+      - /usr/bin/find
+      - /usr/bin/vim
+      - /usr/bin/python3
+      - /usr/bin/bash
+      - /usr/bin/awk
+      - /usr/bin/nmap
+      - /usr/bin/env
+    cvss: 7.8
+
+  # A credential file is a vector only if it is readable by an account that is
+  # NOT its owner — i.e. group- or world-readable. Mode 0600 is not a finding.
+  cred_files:
+    search_paths:
+      - /var/www
+      - /home
+      - /root
+      - /opt
+      - /srv
+      - /etc
+    filenames:
+      - id_rsa
+      - id_ed25519
+      - id_ecdsa
+      - id_dsa
+      - .env
+      - credentials
+      - .netrc
+    require_other_or_group_readable: true
+    cvss: 5.5
+
+  # Kernel -> CVE matching, restricted to the two anchor CVEs (docs/01 section 4).
+  # See knowledge_graph/pack.json for the CWE/CAPEC linkage.
+  kernel:
+    cves:
+      - cve: CVE-2022-0847
+        name: DirtyPipe
+        min_version: "5.8.0"
+        # Linux backports fixes per stable branch, so there is no single cutoff.
+        # derive.py matches the host against the fix for ITS OWN branch: a
+        # 5.15.30 kernel is patched even though it is below 5.16.11. Getting
+        # this wrong would flag every patched 5.10 and 5.15 host as vulnerable.
+        fixed_versions: ["5.10.102", "5.15.25", "5.16.11"]
+        cvss: 7.8
+      - cve: CVE-2021-4034
+        name: PwnKit
+        # PwnKit is a pkexec (polkit) flaw, not a kernel flaw. Matched on the
+        # pkexec package version by probes/suid.py, not on kernel version.
+        package: policykit-1
+        fixed_version: "0.105-31.1"
+        cvss: 7.8
+
+  docker_socket:
+    paths:
+      - /var/run/docker.sock
+      - /run/docker.sock
+    cvss: 8.8
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Lab inventory — DECLARED, not discovered.
+#
+#    role, asset_value, entry point and crown jewel are business inputs. No scan
+#    can derive them. They are declared here and tagged provenance: declared so
+#    the dashboard and any reviewer can tell them apart from observed facts.
+# ─────────────────────────────────────────────────────────────────────────────
+inventory:
+  entry:
+    host: web01
+    account: www-data
+    privilege: low
+  crown_jewel:
+    host: db01
+    privilege: root
+  hosts:
+    web01:
+      role: web
+      asset_value: 10
+    app01:
+      role: app
+      asset_value: 30
+    db01:
+      role: database
+      asset_value: 100
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Remediation templates — one per technique, used by chokepoint/engine.py to
+#    turn a vector into a concrete, costed fix.
+#
+#    cost is an ordinal effort estimate (1 = minutes, 5 = change control needed).
+# ─────────────────────────────────────────────────────────────────────────────
+remediation:
+  T1552.001:
+    chokepoint_type: "Credential Invalidation"
+    title: "Revoke and remove the exposed credential on {host}"
+    description: >-
+      Delete {evidence_path} (currently mode {evidence_mode}), rotate the key,
+      and remove the matching public key from every authorized_keys file that
+      accepts it. This invalidates the credential everywhere it is reused.
+    cost: 1
+  T1548.003:
+    chokepoint_type: "Privilege Restriction"
+    title: "Remove the NOPASSWD sudo rule on {host}"
+    description: >-
+      Delete the sudoers entry allowing {evidence_user} to run {evidence_binary}
+      as root without a password, or restrict it to a binary with no shell escape.
+    cost: 2
+  T1550:
+    chokepoint_type: "Credential Invalidation"
+    title: "Revoke the reused credential {cred_id} across the estate"
+    description: >-
+      Remove {cred_id} from the authorized_keys of every account that accepts it
+      ({reuse_hosts}) and issue a distinct key per destination. Reuse is what lets
+      one disclosure reach more than one host, so revoking it breaks every path
+      that depends on lateral movement with this key.
+    cost: 2
+  T1548.001:
+    chokepoint_type: "Privilege Restriction"
+    title: "Strip the setuid bit from {evidence_path} on {host}"
+    description: >-
+      Run chmod u-s {evidence_path}. This binary has a documented shell escape
+      and is outside the distribution baseline.
+    cost: 2
+  T1068:
+    chokepoint_type: "Vulnerability Remediation"
+    title: "Patch {evidence_cve} on {host}"
+    description: >-
+      Upgrade the kernel to {evidence_fixed_version} or apply the backported
+      distribution patch to eliminate {evidence_cve}.
+    cost: 5
+  T1611:
+    chokepoint_type: "Isolation"
+    title: "Unmount the Docker socket from {host}"
+    description: >-
+      Remove the /var/run/docker.sock bind mount and revoke docker group
+      membership. Socket access is root-equivalent on the container host.
+    cost: 3
