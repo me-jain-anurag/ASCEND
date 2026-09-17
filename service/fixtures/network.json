@@ -1,0 +1,114 @@
+{
+  "hosts": [
+    {
+      "hostname": "web01",
+      "role": "web",
+      "os": "Linux 5.15",
+      "kernel_version": "5.15.0-generic",
+      "asset_value": 20,
+      "is_entry_point": true,
+      "is_crown_jewel": false,
+      "accounts": [
+        { "username": "www-data", "type": "service", "privilege_level": 1 },
+        { "username": "root", "type": "root", "privilege_level": 3 }
+      ],
+      "vectors": [
+        {
+          "vector_id": "vec-web-01",
+          "technique": "T1552.001",
+          "cve": null,
+          "cvss": 5.5,
+          "features": {
+            "file": "/var/www/html/.env",
+            "type": "unsecured_ssh_private_key",
+            "permissions": "0644 (world-readable)"
+          },
+          "verified_exploitable": null
+        },
+        {
+          "vector_id": "vec-web-02",
+          "technique": "T1548.001",
+          "cve": "CVE-2021-4034",
+          "cvss": 7.8,
+          "features": {
+            "binary": "/usr/bin/pkexec",
+            "suid": true,
+            "version": "polkit 0.105-26ubuntu0.1"
+          },
+          "verified_exploitable": null
+        }
+      ]
+    },
+    {
+      "hostname": "app01",
+      "role": "app",
+      "os": "Linux 5.15",
+      "kernel_version": "5.15.0-generic",
+      "asset_value": 50,
+      "is_entry_point": false,
+      "is_crown_jewel": false,
+      "accounts": [
+        { "username": "appuser", "type": "service", "privilege_level": 1 },
+        { "username": "root", "type": "root", "privilege_level": 3 }
+      ],
+      "vectors": [
+        {
+          "vector_id": "vec-app-01",
+          "technique": "T1548.003",
+          "cve": null,
+          "cvss": 6.8,
+          "features": {
+            "rule": "appuser ALL=(ALL) NOPASSWD: /usr/bin/find",
+            "escapable": true
+          },
+          "verified_exploitable": null
+        }
+      ]
+    },
+    {
+      "hostname": "db01",
+      "role": "db",
+      "os": "Linux 5.16.10",
+      "kernel_version": "5.16.10-dirtypipe",
+      "asset_value": 100,
+      "is_entry_point": false,
+      "is_crown_jewel": true,
+      "accounts": [
+        { "username": "dbuser", "type": "service", "privilege_level": 1 },
+        { "username": "root", "type": "root", "privilege_level": 3 }
+      ],
+      "vectors": [
+        {
+          "vector_id": "vec-db-01",
+          "technique": "T1068",
+          "cve": "CVE-2022-0847",
+          "cvss": 7.8,
+          "features": {
+            "vulnerability": "DirtyPipe pipe buffer flag zeroing flaw",
+            "impact": "arbitrary read-only file overwrite (e.g. /etc/passwd)"
+          },
+          "verified_exploitable": null
+        }
+      ]
+    },
+    {
+      "hostname": "admin01",
+      "role": "jump host",
+      "os": "Linux 5.15",
+      "kernel_version": "5.15.0-generic",
+      "asset_value": 30,
+      "is_entry_point": false,
+      "is_crown_jewel": false,
+      "accounts": [
+        { "username": "sysadmin", "type": "human", "privilege_level": 2 }
+      ],
+      "vectors": []
+    }
+  ],
+  "reachability": [
+    { "from_host": "web01", "to_host": "app01", "port": 22, "service": "ssh" },
+    { "from_host": "app01", "to_host": "db01", "port": 22, "service": "ssh" },
+    { "from_host": "app01", "to_host": "db01", "port": 5432, "service": "postgresql" },
+    { "from_host": "admin01", "to_host": "app01", "port": 22, "service": "ssh" }
+  ]
+}

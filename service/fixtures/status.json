@@ -1,0 +1,17 @@
+{
+  "system": "ASCEND Analysis Core",
+  "version": "1.0.0-rc1",
+  "status": "ready",
+  "lab_environment": "isolated-docker-network",
+  "_fixture_note": "hosts_count/vectors_count/enumerated_paths/precision are derived live in /api/status — do not edit here. verified_paths and chokepoints_identified are placeholders until verifier/ and chokepoint/ modules are built.",
+  "summary_metrics": {
+    "hosts_count": 3,
+    "vectors_count": 3,
+    "enumerated_paths": 3,
+    "verified_paths": 1,
+    "_verified_paths_note": "matches verify.json fixture (1 path overall_verified:true, 1 false) — fixture data only, not from a real verifier run",
+    "precision": "100.0%",
+    "chokepoints_identified": 1,
+    "active_scenario": "default"
+  }
+}
