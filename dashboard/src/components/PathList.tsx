@@ -9,12 +9,6 @@ interface Props {
   selectedPathId?: string | null;
 }
 
-function riskClass(score: number) {
-  if (score >= 7) return 'high';
-  if (score >= 4) return 'med';
-  return 'low';
-}
-
 function techniqueTag(t: string) {
   return <span className="tag tag-purple" key={t}>{t}</span>;
 }
@@ -38,7 +32,6 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
         const isExpanded = expanded === path.path_id;
         const isSelected = selectedPathId === path.path_id;
         const verResult = verifyData?.results[path.path_id];
-        const rc = riskClass(path.risk_score);
 
         return (
           <div
@@ -73,12 +66,6 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
                   {path.entry_host} → {path.crown_jewel_host} &nbsp;·&nbsp; {path.length} steps
                   {isSelected && <span style={{ color: 'var(--accent-cyan)', marginLeft: 8 }}>● Graph highlighted</span>}
                 </div>
-              </div>
-
-              {/* Risk score */}
-              <div className="path-risk">
-                <span className={`risk-score ${rc}`}>{path.risk_score.toFixed(1)}</span>
-                <span className="risk-label">Risk</span>
               </div>
 
               <ChevronDown

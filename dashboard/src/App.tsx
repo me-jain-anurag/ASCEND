@@ -51,7 +51,6 @@ function OverviewTab({
         <StatCard label="Attack Vectors" value={m.vectors_count} icon={<AlertTriangle size={14} />} variant="warn" />
         <StatCard label="Attack Paths" value={m.enumerated_paths} icon={<Shield size={14} />} variant="danger" />
         <StatCard label="Verified Paths" value={m.verified_paths} icon={<ShieldCheck size={14} />} variant={m.verified_paths > 0 ? 'danger' : 'safe'} />
-        <StatCard label="Precision" value={m.precision} icon={<Target size={14} />} />
         <StatCard label="Chokepoints" value={m.chokepoints_identified} icon={<TrendingDown size={14} />} variant="safe" />
         {m.eliminated_paths_count != null && m.eliminated_paths_count > 0 && (
           <StatCard label="Paths Eliminated" value={m.eliminated_paths_count} icon={<ShieldCheck size={14} />} variant="safe"
@@ -59,7 +58,7 @@ function OverviewTab({
         )}
       </div>
 
-      {/* Scenario + Precision */}
+      {/* Scenario + Verification Summary */}
       <div className="two-col">
         <div className="card">
           <div className="card-header">
@@ -93,7 +92,15 @@ function OverviewTab({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-red)', lineHeight: 1 }}>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-cyan)', lineHeight: 1 }}>
+                      {verifyData.summary.paths_tested}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Tested
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-green)', lineHeight: 1 }}>
                       {verifyData.summary.paths_verified}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -106,14 +113,6 @@ function OverviewTab({
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                       Failed
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-green)', lineHeight: 1 }}>
-                      {(verifyData.summary.precision * 100).toFixed(0)}%
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      Precision
                     </div>
                   </div>
                 </div>

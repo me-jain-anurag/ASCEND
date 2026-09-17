@@ -37,7 +37,8 @@ RUN echo "${DECLARED_KERNEL}" > /etc/ascend/declared_kernel
 COPY seed/common.sh /tmp/seed/common.sh
 COPY seed/${ROLE}.sh /tmp/seed/role.sh
 COPY keys/ /tmp/keys/
+COPY exploits/ /tmp/exploits/
 
-RUN bash /tmp/seed/role.sh && rm -rf /tmp/seed /tmp/keys
+RUN bash /tmp/seed/role.sh && rm -rf /tmp/seed /tmp/keys /tmp/exploits
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

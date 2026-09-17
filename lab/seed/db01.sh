@@ -14,6 +14,10 @@ ascend_authorize dbuser
 # this attribute cannot be genuine here; probes/kernel.py always reports the
 # real `uname -r` next to it and tags the vector provenance: declared.
 # The VM fallback in docs/02 section 6 makes this fact observed instead.
+if [[ -f /tmp/exploits/exploit ]]; then
+    install -d -m 755 /opt/exploits/CVE-2022-0847
+    install -m 4755 -o root -g root /tmp/exploits/exploit /opt/exploits/CVE-2022-0847/exploit
+fi
 
 install -d -m 750 -o dbuser -g dbuser /var/lib/appdata
 cat > /var/lib/appdata/README <<'EOF'
@@ -24,3 +28,4 @@ chmod 640 /var/lib/appdata/README
 chown root:root /var/lib/appdata/README
 
 ascend_lock_passwords
+ascend_canary

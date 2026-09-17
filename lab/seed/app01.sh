@@ -41,3 +41,4 @@ install -d -m 700 -o appuser -g appuser /home/appuser/.ssh
 install -m 600 -o appuser -g appuser /tmp/keys/app_deploy_key /home/appuser/.ssh/id_rsa
 
 ascend_lock_passwords
+ascend_canary
