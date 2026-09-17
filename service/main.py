@@ -360,14 +360,50 @@ def apply_remediation(req: ApplyFixRequest):
 
 @app.get("/api/status")
 def get_status():
-    """Returns run state and summary metrics."""
-    # TODO(Part A/B): replace fixture read with call into scorer
-    status_data = load_fixture("status.json")
-    # Update active scenario and applied fixes in status response
-    status_data["summary_metrics"]["active_scenario"] = state["active_scenario"]
-    status_data["summary_metrics"]["applied_fixes_count"] = len(state["applied_fixes"])
-    status_data["summary_metrics"]["eliminated_paths_count"] = len(state["eliminated_path_ids"])
-    return status_data
+    """Returns run state and summary metrics.
+
+    Derived fields (live, from real modules):
+      hosts_count       ← len(facts["hosts"])           via environment_graph/facts.json
+      vectors_count     ← len(facts["vectors"])          via environment_graph/facts.json
+      enumerated_paths  ← len(enumerate_paths(facts))   via enumerator/enumerate.py
+      precision         ← path_precision(facts, paths)  via enumerator/enumerate.py
+
+    Fixture-sourced placeholders (modules don't exist yet — NOT derived):
+      verified_paths        ← status.json  # TODO: replace when verifier/ is built
+      chokepoints_identified← status.json  # TODO: replace when chokepoint/ is built
+    """
+    facts = _load_facts()
+    raw_paths = _enumerate_paths(facts)
+    precision = _path_precision(facts, raw_paths)
+
+    # Load fixture only for the two fields that still have no real module behind them
+    fixture = load_fixture("status.json")
+    fixture_metrics = fixture.get("summary_metrics", {})
+
+    summary_metrics = {
+        # ── Derived from live data ────────────────────────────────────────────
+        "hosts_count":      len(facts.get("hosts", [])),
+        "vectors_count":    len(facts.get("vectors", [])),
+        "enumerated_paths": len(raw_paths),
+        "precision":        f"{precision['precision'] * 100:.1f}%",
+
+        # ── Fixture placeholders: verifier and chokepoint engine not built yet ─
+        "verified_paths":        fixture_metrics.get("verified_paths", 0),
+        "chokepoints_identified": fixture_metrics.get("chokepoints_identified", 0),
+
+        # ── Runtime state (always live) ───────────────────────────────────────
+        "active_scenario":       state["active_scenario"],
+        "applied_fixes_count":   len(state["applied_fixes"]),
+        "eliminated_paths_count": len(state["eliminated_path_ids"]),
+    }
+
+    return {
+        "system":          fixture.get("system", "ASCEND Analysis Core"),
+        "version":         fixture.get("version", "1.0.0-rc1"),
+        "status":          fixture.get("status", "ready"),
+        "lab_environment": fixture.get("lab_environment", "isolated-docker-network"),
+        "summary_metrics": summary_metrics,
+    }
 
 @app.post("/api/reset")
 def reset_state():

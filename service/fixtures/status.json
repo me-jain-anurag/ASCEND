@@ -8,8 +8,8 @@
     "hosts_count": 3,
     "vectors_count": 3,
     "enumerated_paths": 3,
-    "verified_paths": 0,
-    "_verified_paths_note": "no execution verifier exists yet — this must stay 0 until real verification runs",
+    "verified_paths": 1,
+    "_verified_paths_note": "matches verify.json fixture (1 path overall_verified:true, 1 false) — fixture data only, not from a real verifier run",
     "precision": "100.0%",
     "chokepoints_identified": 1,
     "active_scenario": "default"
