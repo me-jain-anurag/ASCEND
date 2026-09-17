@@ -80,7 +80,11 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
             <MetricRow icon={AlertTriangle} label="Vectors" value={m.vectors_count} color="var(--accent-amber)" />
             <MetricRow icon={Shield} label="Paths" value={m.enumerated_paths} color="var(--accent-red)" />
             <MetricRow icon={ShieldCheck} label="Verified" value={m.verified_paths} color="var(--accent-green)" />
-            <MetricRow label="Precision" value={m.precision} />
+            <MetricRow
+              label="Config Coverage"
+              value={m.precision}
+              tooltip="Fraction of enumerated paths using vectors marked exploitable in config — not execution-verified."
+            />
           </div>
         </div>
       )}
@@ -88,16 +92,20 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
   );
 }
 
-function MetricRow({ icon: Icon, label, value, color }: {
+function MetricRow({ icon: Icon, label, value, color, tooltip }: {
   icon?: React.ComponentType<{ size?: number }>;
   label: string;
   value: string | number;
   color?: string;
+  tooltip?: string;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       {Icon && <Icon size={12} />}
-      <span style={{ fontSize: 11, color: 'var(--text-2)', flex: 1 }}>{label}</span>
+      <span
+        style={{ fontSize: 11, color: 'var(--text-2)', flex: 1, cursor: tooltip ? 'help' : 'default' }}
+        title={tooltip}
+      >{label}</span>
       <span style={{ fontSize: 12, fontWeight: 700, color: color ?? 'var(--text-1)' }}>
         {value}
       </span>

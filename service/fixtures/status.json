@@ -3,12 +3,14 @@
   "version": "1.0.0-rc1",
   "status": "ready",
   "lab_environment": "isolated-docker-network",
+  "_fixture_note": "hosts_count/vectors_count/enumerated_paths/precision are derived live in /api/status — do not edit here. verified_paths and chokepoints_identified are placeholders until verifier/ and chokepoint/ modules are built.",
   "summary_metrics": {
-    "hosts_count": 4,
-    "vectors_count": 4,
-    "enumerated_paths": 2,
-    "verified_paths": 1,
-    "precision": "50.0%",
+    "hosts_count": 3,
+    "vectors_count": 3,
+    "enumerated_paths": 3,
+    "verified_paths": 0,
+    "_verified_paths_note": "no execution verifier exists yet — this must stay 0 until real verification runs",
+    "precision": "100.0%",
     "chokepoints_identified": 1,
     "active_scenario": "default"
   }
