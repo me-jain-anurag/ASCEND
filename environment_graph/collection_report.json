@@ -1,5 +1,5 @@
 {
-  "collected_at": "2026-09-17T15:33:12+00:00",
+  "collected_at": "2026-09-17T17:55:35+00:00",
   "source": "docker:ascend-",
   "hosts_probed": [
     "app01",
@@ -53,7 +53,7 @@
           "result": "open"
         },
         {
-          "endpoint": "172.19.0.2",
+          "endpoint": "172.18.0.3",
           "result": "open"
         }
       ]
@@ -70,7 +70,7 @@
           "result": "open"
         },
         {
-          "endpoint": "172.18.0.3",
+          "endpoint": "172.19.0.2",
           "result": "open"
         }
       ]
@@ -88,12 +88,12 @@
         },
         {
           "endpoint": "172.18.0.2",
-          "result": "refused",
-          "detail": "Network is unreachable"
+          "result": "open"
         },
         {
           "endpoint": "172.19.0.3",
-          "result": "open"
+          "result": "refused",
+          "detail": "Network is unreachable"
         }
       ]
     },
@@ -110,7 +110,7 @@
           "detail": "[Errno -3] Temporary failure in name resolution"
         },
         {
-          "endpoint": "172.18.0.3",
+          "endpoint": "172.19.0.2",
           "result": "refused",
           "detail": "Network is unreachable"
         }
@@ -129,12 +129,12 @@
         },
         {
           "endpoint": "172.18.0.2",
-          "result": "open"
+          "result": "refused",
+          "detail": "Network is unreachable"
         },
         {
           "endpoint": "172.19.0.3",
-          "result": "refused",
-          "detail": "Network is unreachable"
+          "result": "open"
         }
       ]
     },
@@ -151,7 +151,7 @@
           "detail": "[Errno -3] Temporary failure in name resolution"
         },
         {
-          "endpoint": "172.19.0.2",
+          "endpoint": "172.18.0.3",
           "result": "refused",
           "detail": "Network is unreachable"
         }

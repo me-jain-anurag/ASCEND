@@ -23,3 +23,4 @@ chmod 755 /var/www/deploy.sh
 chown www-data:www-data /var/www/deploy.sh
 
 ascend_lock_passwords
+ascend_canary

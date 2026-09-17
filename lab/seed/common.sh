@@ -4,6 +4,7 @@ set -euo pipefail
 
 DEPLOY_KEY_PRIV=/tmp/keys/app_deploy_key
 DEPLOY_KEY_PUB=/tmp/keys/app_deploy_key.pub
+CANARY_TOKEN_FILE=/tmp/keys/.canary_token
 
 # ascend_user <name> <uid> — create a login-capable account.
 # The collector's account probe only reports accounts with a real login shell,
@@ -35,4 +36,12 @@ ascend_lock_passwords() {
     passwd -l root >/dev/null 2>&1 || true
     sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
     sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/'  /etc/ssh/sshd_config
+}
+
+# ascend_canary — plant a root-only file containing a per-build secret token.
+# The execution verifier (A3) reads this file after running a technique. If the
+# token appears in stdout, privilege genuinely escalated to root. The file is
+# mode 0400 owned by root, so no unprivileged account can read it directly.
+ascend_canary() {
+    install -m 0400 -o root -g root "$CANARY_TOKEN_FILE" /root/.ascend_canary
 }

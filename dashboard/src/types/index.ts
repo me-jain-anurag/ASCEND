@@ -24,7 +24,7 @@ export interface PathStep {
 export interface AttackPath {
   path_id: string; name: string; length: number;
   entry_host: string; crown_jewel_host: string;
-  overall_verified: boolean | null; risk_score: number; steps: PathStep[];
+  overall_verified: boolean | null; risk_score?: number; steps: PathStep[];
 }
 export interface PathsResponse {
   scenario: string; name: string; entry_point: string; crown_jewel: string;
@@ -37,7 +37,7 @@ export interface VerifyStep { step_number: number; verified: boolean; evidence: 
 export interface VerifyPathResult { overall_verified: boolean; failed_at_step?: number; steps: VerifyStep[]; }
 export interface VerifyData {
   execution_run_id: string; status: string; timestamp: string;
-  summary: { paths_tested: number; paths_verified: number; paths_failed: number; precision: number; };
+  summary: { paths_tested: number; paths_verified: number; paths_failed: number; precision?: number; };
   results: Record<string, VerifyPathResult>;
 }
 
@@ -54,7 +54,7 @@ export interface RemediationData { total_verified_paths: number; ranked_fixes: F
 // ─── Status ───────────────────────────────────────────────────────────────────
 export interface StatusMetrics {
   hosts_count: number; vectors_count: number; enumerated_paths: number;
-  verified_paths: number; precision: string; chokepoints_identified: number;
+  verified_paths: number; precision?: string; chokepoints_identified: number;
   active_scenario: string; applied_fixes_count?: number; eliminated_paths_count?: number;
 }
 export interface StatusData {

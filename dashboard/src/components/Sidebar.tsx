@@ -80,11 +80,6 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
             <MetricRow icon={AlertTriangle} label="Vectors" value={m.vectors_count} color="var(--accent-amber)" />
             <MetricRow icon={Shield} label="Paths" value={m.enumerated_paths} color="var(--accent-red)" />
             <MetricRow icon={ShieldCheck} label="Verified" value={m.verified_paths} color="var(--accent-green)" />
-            <MetricRow
-              label="Config Coverage"
-              value={m.precision}
-              tooltip="Fraction of enumerated paths using vectors marked exploitable in config — not execution-verified."
-            />
           </div>
         </div>
       )}
