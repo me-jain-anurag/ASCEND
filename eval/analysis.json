@@ -94,9 +94,80 @@
       {
         "from": "db01:low",
         "to": "db01:root",
+        "technique": "T1548.001",
+        "technique_name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
+        "vector_id": "v_db01_suid_find"
+      }
+    ],
+    [
+      {
+        "from": "web01:low",
+        "to": "cred:app_deploy_key",
+        "technique": "T1552.001",
+        "technique_name": "Unsecured Credentials in Files",
+        "vector_id": "v_web01_credfile_id_rsa"
+      },
+      {
+        "from": "web01:low",
+        "to": "app01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
+        "from": "app01:low",
+        "to": "db01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
+        "from": "app01:low",
+        "to": "app01:root",
+        "technique": "T1548.003",
+        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+        "vector_id": "v_app01_sudo_tar"
+      },
+      {
+        "from": "db01:low",
+        "to": "db01:root",
         "technique": "T1068",
         "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
         "vector_id": "v_db01_kernel_cve_2022_0847"
+      }
+    ],
+    [
+      {
+        "from": "web01:low",
+        "to": "cred:app_deploy_key",
+        "technique": "T1552.001",
+        "technique_name": "Unsecured Credentials in Files",
+        "vector_id": "v_web01_credfile_id_rsa"
+      },
+      {
+        "from": "web01:low",
+        "to": "app01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
+        "from": "app01:low",
+        "to": "db01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
+        "from": "db01:low",
+        "to": "db01:root",
+        "technique": "T1548.001",
+        "technique_name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
+        "vector_id": "v_db01_suid_find"
       }
     ],
     [
@@ -155,7 +226,46 @@
         "vector_id": "v_app01_sudo_tar"
       },
       {
+        "from": "app01:root",
+        "to": "db01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
+        "from": "db01:low",
+        "to": "db01:root",
+        "technique": "T1548.001",
+        "technique_name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
+        "vector_id": "v_db01_suid_find"
+      }
+    ],
+    [
+      {
+        "from": "web01:low",
+        "to": "cred:app_deploy_key",
+        "technique": "T1552.001",
+        "technique_name": "Unsecured Credentials in Files",
+        "vector_id": "v_web01_credfile_id_rsa"
+      },
+      {
+        "from": "web01:low",
+        "to": "app01:low",
+        "technique": "T1021.004+T1550",
+        "technique_name": "Remote Services: SSH (reused credential)",
+        "vector_id": null,
+        "credential": "app_deploy_key"
+      },
+      {
         "from": "app01:low",
+        "to": "app01:root",
+        "technique": "T1548.003",
+        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+        "vector_id": "v_app01_sudo_tar"
+      },
+      {
+        "from": "app01:root",
         "to": "db01:low",
         "technique": "T1021.004+T1550",
         "technique_name": "Remote Services: SSH (reused credential)",
@@ -174,31 +284,38 @@
   "chokepoints": [
     {
       "vector_id": "v_web01_credfile_id_rsa",
-      "on_paths": 3,
-      "total_paths": 3,
-      "paths_eliminated_if_fixed": 3,
+      "on_paths": 6,
+      "total_paths": 6,
+      "paths_eliminated_if_fixed": 6,
       "technique": "T1552.001 \u2014 Unsecured Credentials in Files"
+    },
+    {
+      "vector_id": "v_app01_sudo_tar",
+      "on_paths": 4,
+      "total_paths": 6,
+      "paths_eliminated_if_fixed": 4,
+      "technique": "T1548.003 \u2014 Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
+    },
+    {
+      "vector_id": "v_db01_suid_find",
+      "on_paths": 3,
+      "total_paths": 6,
+      "paths_eliminated_if_fixed": 3,
+      "technique": "T1548.001 \u2014 Abuse Elevation Control Mechanism: Setuid and Setgid"
     },
     {
       "vector_id": "v_db01_kernel_cve_2022_0847",
       "on_paths": 3,
-      "total_paths": 3,
+      "total_paths": 6,
       "paths_eliminated_if_fixed": 3,
       "technique": "T1068 \u2014 Exploitation for Privilege Escalation (DirtyPipe)"
-    },
-    {
-      "vector_id": "v_app01_sudo_tar",
-      "on_paths": 2,
-      "total_paths": 3,
-      "paths_eliminated_if_fixed": 2,
-      "technique": "T1548.003 \u2014 Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
     }
   ],
   "path_finder": {
-    "proposed": 3,
+    "proposed": 6,
     "verified": 0,
     "precision": 0.0,
-    "config_covered": 3,
+    "config_covered": 6,
     "config_coverage": 1.0,
     "verification_status": "none"
   }
