@@ -43,6 +43,7 @@ The single most important idea:
 
 | File | What it is | Primary reader |
 |------|-----------|----------------|
+| `README.md` | **Start here.** What the project is, why it is built this way, and how the pieces fit — with a diagram | Anyone new to the project |
 | `demo.md` | Step-by-step: how to test the pipeline and how to run the demo, in plain terms, with the prepared answers to the questions you will be asked | Whoever is presenting |
 | `QUICKSTART.md` | The shortest path to a working pipeline, with and without Docker | A teammate on a fresh clone |
 | `lab/README.md` | The Docker lab: what is planted, what is deliberately *not* reported, and the container-kernel caveat | Whoever touches the lab |
