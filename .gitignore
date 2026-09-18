@@ -114,3 +114,6 @@ Desktop.ini
 !lab/**/.env
 !lab/**/*.pem
 !lab/**/id_rsa*
+
+# Verifier live-run audit trail (demo clicks, not training data)
+verifier/runs/

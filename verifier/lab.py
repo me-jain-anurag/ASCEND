@@ -144,6 +144,21 @@ def file_exists(host: str, path: str, prefix: str = "ascend-") -> bool:
     return code == 0
 
 
+def kernel_release(host: str, prefix: str = "ascend-") -> str:
+    """The kernel the container is ACTUALLY running on (`uname -r`).
+
+    Not the declared kernel from /etc/ascend/declared_kernel. Containers share
+    the host kernel, so this is the value that decides whether a kernel exploit
+    could possibly work here, regardless of what the environment graph says the
+    host "is".
+    """
+    try:
+        code, out, _ = exec_as(host, "root", ["uname", "-r"], prefix=prefix)
+        return out.strip() if code == 0 else ""
+    except Exception:
+        return ""
+
+
 def container_image_digest(host: str, prefix: str = "ascend-") -> str:
     """Return the image digest (sha256:...) for *host*'s container image."""
     try:

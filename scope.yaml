@@ -295,7 +295,15 @@ verifier:
     - id: "T1021.004+T1550"
       adapter: lateral_ssh
       check: canary_on_target
-      hosts: [web01]
+      # Lateral movement asks "does this credential open a session on the
+      # target", not "did privilege increase here". An attacker who already
+      # holds root on the source host is a legitimate starting state, so the
+      # runner's unprivileged-start guard does not apply to this technique.
+      requires_unprivileged_start: false
+      # hosts is the allow-list of hosts the verifier may START from. Both lab
+      # hops use this one entry; the per-edge key_path/to_host/to_user come from
+      # the enumerated path as overrides (see service/main.py:_verifier_edges).
+      hosts: [web01, app01, db01]
       start_user: www-data
       key_path: "/var/www/.ssh/id_rsa"
       to_host: app01
@@ -306,5 +314,18 @@ verifier:
       check: canary
       hosts: [db01]
       start_user: dbuser
+      cve: CVE-2022-0847
+      # The verifier refuses to run this unless the RUNNING kernel is in range.
+      # Matched per stable branch, like rules.kernel above.
+      requires_kernel:
+        affected_from: "5.8.0"
+        fixed_versions: ["5.10.102", "5.15.25", "5.16.11"]
+      declared_kernel_note: >-
+        db01's environment graph says 5.16.0, which is declared for the graph
+        (provenance: declared) and cannot make the running kernel vulnerable.
+        Use the three-VM fallback in docs/02 section 6 to execute this for real.
+      # Bring-your-own-binary: the verifier never ships exploit code. Workstream
+      # A builds a real CVE-2022-0847 exploit and places it here. Until then this
+      # technique reports not_executable, never a pass or a fail.
       exploit_ref: "/opt/exploits/CVE-2022-0847/exploit"
 
