@@ -75,9 +75,86 @@ def allow():
     sys.exit(0)
 
 
+# Shells that EXECUTE their stdin. A heredoc feeding one of these is code, not
+# data, so its body must still be inspected.
+_STDIN_SHELLS = {"sh", "bash", "zsh", "ksh", "dash", "ash", "fish", "csh", "tcsh"}
+
+# <<EOF / <<-EOF / <<'EOF' / <<"EOF"
+_HEREDOC = re.compile(r"<<-?\s*([\"\']?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+def strip_heredoc_bodies(command):
+    """Remove heredoc bodies, which are input to a program rather than commands.
+
+    Without this, writing a file that merely MENTIONS a git command trips the
+    guard:
+
+        python3 - <<'PY'
+        print("run: git clone <url>")     # <- data, not a command
+        PY
+
+    The body is stdin for python3, so nothing in it is executed by the shell.
+    Documentation, test fixtures and generated files kept tripping the guard
+    this way, which trains people to work around it — the worst outcome for a
+    safety check.
+
+    The exception that must not be lost: a heredoc feeding a SHELL really is
+    executed, so those bodies are kept and inspected.
+
+        bash <<'EOF'
+        git push origin main              # <- genuinely runs
+        EOF
+
+    Fails closed: if a heredoc is opened and never terminated, the remaining
+    lines are kept and classified rather than trusted.
+    """
+    lines = command.split("\n")
+    kept, i = [], 0
+
+    while i < len(lines):
+        line = lines[i]
+        kept.append(line)
+
+        match = _HEREDOC.search(line)
+        if not match:
+            i += 1
+            continue
+
+        # Does this heredoc feed a shell? Look at the command word on this line.
+        before = line[:match.start()]
+        try:
+            words = shlex.split(before, comments=False)
+        except ValueError:
+            words = before.split()
+        words = strip_leading_noise(words)
+        target = words[0].rsplit("/", 1)[-1] if words else ""
+        feeds_a_shell = target in _STDIN_SHELLS
+
+        delimiter = match.group(2)
+        i += 1
+        terminated = False
+        body = []
+        while i < len(lines):
+            if lines[i].strip() == delimiter:
+                terminated = True
+                kept.append(lines[i])
+                i += 1
+                break
+            body.append(lines[i])
+            i += 1
+
+        # Keep the body when a shell will execute it, or when the heredoc was
+        # never closed (we cannot tell where the data ends, so assume the worst).
+        if feeds_a_shell or not terminated:
+            kept.extend(body)
+
+    return "\n".join(kept)
+
+
 def split_segments(command):
     """Split a shell command into pipeline/sequence segments so each is
     classified independently. Good enough for cooperative use."""
+    command = strip_heredoc_bodies(command)
     return re.split(r"&&|\|\||;|\n|(?<!\|)\|(?!\|)", command)
 
 
