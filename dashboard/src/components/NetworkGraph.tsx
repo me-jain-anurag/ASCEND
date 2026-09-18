@@ -60,7 +60,7 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
             'color': '#f1f5f9',
             'font-size': 10,
             'font-family': 'Inter, sans-serif',
-            'font-weight': '600',
+            'font-weight': 600,
             'text-valign': 'bottom',
             'text-margin-y': 6,
             'text-outline-width': 0,
@@ -73,7 +73,10 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
             'background-color': '#00d4ff',
             'background-opacity': 0.18,
             'border-width': 2.5,
-            'box-shadow': '0 0 20px rgba(0,212,255,0.6)',
+            // Cytoscape has no 'box-shadow'; overlay is its glow equivalent.
+            'overlay-color': '#00d4ff',
+            'overlay-opacity': 0.18,
+            'overlay-padding': 6,
           },
         },
         {
@@ -161,7 +164,7 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
 
     pathNodeIds.forEach(id => cy.$(`#${id}`).addClass('path-node'));
 
-    activePath.steps.forEach((step, i) => {
+    activePath.steps.forEach(step => {
       if (step.source_host !== step.target_host) {
         const edge = cy.edges().filter(
           e => e.data('source') === step.source_host && e.data('target') === step.target_host

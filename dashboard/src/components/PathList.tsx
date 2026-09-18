@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Shield, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { ChevronDown, Shield, CheckCircle, XCircle } from 'lucide-react';
 import type { AttackPath, VerifyData } from '../types';
 
 interface Props {
