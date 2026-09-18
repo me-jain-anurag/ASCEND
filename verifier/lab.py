@@ -159,6 +159,15 @@ def kernel_release(host: str, prefix: str = "ascend-") -> str:
         return ""
 
 
+def file_mode(host: str, path: str, prefix: str = "ascend-") -> str | None:
+    """Octal permission bits for *path*, or None if it does not exist.
+
+    Four digits, so the setuid bit is visible: "4755" rather than "755".
+    """
+    code, out, _ = exec_as(host, "root", ["stat", "-c", "%04a", path], prefix=prefix)
+    return out.strip() if code == 0 and out.strip() else None
+
+
 def container_image_digest(host: str, prefix: str = "ascend-") -> str:
     """Return the image digest (sha256:...) for *host*'s container image."""
     try:
