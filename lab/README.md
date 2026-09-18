@@ -20,14 +20,27 @@ You need Docker Engine and the Compose v2 plugin. Use Docker's official install
 script:
 
 ```bash
-curl https://get.docker.com/ | bash
+curl -fsSL https://get.docker.com | bash
 ```
 
 It detects the distribution, adds Docker's repository and installs Engine, the
-CLI, containerd, buildx and the Compose plugin. Downloading it first and running
-it as a separate step lets you read it before it runs as root — worth doing once
-with any script that installs system packages. Add `--dry-run` to see what it
-would do without touching anything.
+CLI, containerd, buildx and the Compose plugin. It calls `sudo` itself, so run
+it as your normal user.
+
+`-fsSL` is worth keeping: without `-f`, curl prints an HTTP error page instead
+of failing, and piping that into a shell is a bad day. Add `--dry-run` to see
+what it would do without touching anything.
+
+**This script does not support Arch.** There, install from the repositories
+instead:
+
+```bash
+sudo pacman -S --needed docker docker-compose
+sudo systemctl enable --now docker
+```
+
+The `systemctl` line matters on Arch: pacman installs the service without
+starting it or enabling it at boot.
 
 Then let your user reach the daemon:
 

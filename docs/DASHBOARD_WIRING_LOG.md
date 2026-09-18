@@ -466,3 +466,104 @@ search and not shortest-path — the three move types, why the search terminates
 the config-coverage/precision split, the input and output contract, and the
 module's known limits (two-level privilege ladder, port-agnostic reachability,
 all paths weighted equally until `scorer/` exists).
+
+---
+
+# Part 5 — completing the execution verifier
+
+> Builds on `54958e3` (Dhyani), which added `verifier/`, the canary harness, the
+> lab exploit slot and the first `/api/verify` wiring. This entry records what
+> was completed on top of it and, more importantly, what was found wrong.
+
+## 20. A fabricated verification result, and its removal
+
+`lab/exploits/dirtypipe.c` contained no DirtyPipe logic — no pipe, no `splice`,
+no page-cache write. It called `setuid(0)`, `setgid(0)` and `execvp`.
+`lab/seed/db01.sh` installed the compiled binary **mode 4755 (setuid root)**.
+
+So the program returned root because of its file permissions, on any kernel
+whatsoever, and the verifier recorded `T1068 escalated=true`. The lab's actual
+kernel is the host machine's (7.2.6), which is not vulnerable to CVE-2022-0847.
+
+Demonstrated by removing the setuid bit and re-running with the kernel
+unchanged: the technique then failed. The "verification" was measuring a file
+mode, not a vulnerability.
+
+**Both files were deleted.** A verifier that reports a success it did not
+achieve is worse than no verifier, because every other number the project
+publishes then rests on it.
+
+Prevention, not just correction:
+
+- `anchor_cve` now checks the **running** kernel (`uname -r`) against the
+  affected range before it will run anything, matched per stable branch like the
+  collector's rule.
+- `lab/seed/db01.sh` installs any future artifact `0755`, never setuid, with the
+  reasoning in a comment.
+- `lab/exploits/README.md` states the bring-your-own-binary contract and records
+  what went wrong.
+- Two tests fail the build if an exploit binary reappears or is installed setuid.
+
+## 21. Three outcome states instead of two
+
+`escalated` / `not_escalated` could not express "this lab cannot run that", so a
+technique the lab cannot host was being recorded as evidence that the technique
+does not work — a claim about the world rather than about our lab.
+
+Added `NOT_EXECUTABLE` alongside the two, carried through `AdapterResult`,
+`Outcome`, `verify_path` and `/api/verify`. A path with a blocked step is
+**partial**: not proven, not disproven. `AdapterResult.__post_init__` keeps the
+boolean and the state from ever disagreeing.
+
+## 22. Bugs fixed in the live-verification path
+
+| Bug | Effect | Fix |
+|---|---|---|
+| `/api/verify` shelled out to `wsl bash -c "cd /mnt/c/Users/dhyan/..."` | On any non-WSL machine the call threw, was swallowed, and every path silently reported unverified | Calls `verifier.runner.verify_path` in-process; a genuine failure now returns 503 with the reason |
+| Both SSH hops resolve to one scope entry | The second hop re-ran the first hop's source and target, reporting a leg as verified that was never tested | Per-edge `overrides`, built from the enumerated path. Overrides may set parameters only — never adapter, check or host allow-list |
+| Credential attached only to the first lateral step | The second hop looked credential-less, so the verifier could not tell which key to use | Attach the credential to every step that uses it; the enumerator already reports it per step |
+| Unprivileged-start guard applied to lateral movement | Rejected path-03, where the attacker legitimately holds root on app01 before hopping to db01 | Guard is now per-technique (`requires_unprivileged_start`), on for escalation, off for lateral movement |
+| `telemetry` evidence read `auditd: <technique> execution monitored` | `telemetry.py` is a stub with no Falco behind it — the line described monitoring that does not exist | Evidence now reads `not captured — verifier/telemetry.py is a stub` |
+| Live Verify clicks appended to `outcomes.jsonl` | 94 rows of demo clicks had accumulated in the scorer's training dataset | Two streams: `outcomes.jsonl` (batch, seeded, reproducible) and `verifier/runs/live.jsonl` (audit trail, gitignored) |
+
+## 23. What the verifier now reports
+
+| Path | Status | Steps verified |
+|---|---|---|
+| path-01 | partial | 3 of 4 |
+| path-02 | partial | 2 of 3 |
+| path-03 | partial | 3 of 4 |
+
+**8 of 11 steps genuinely executed and confirmed.** Executed for real: reading
+the exposed key as `www-data`; SSH `web01 → app01` landing as `appuser`; SSH
+`app01 → db01` landing as `dbuser`; the `sudo tar` escape reaching `uid=0`.
+The 3 unverified steps are all the same DirtyPipe step, each carrying its reason.
+
+`/api/status` gained `partial_paths` and a `verification` block. `verified_paths`
+counts only fully verified paths and is honestly 0.
+
+## 24. Left deliberately undone
+
+Flagged rather than faked, each with a `TODO` at the site:
+
+- **Falco telemetry** — interface exists, nothing behind it.
+- **Credential staging between hops** — a hop is verifiable only where the key
+  is already on the source host. The verifier says so rather than guessing a path.
+- **Real CVE exploit** — needs a genuinely vulnerable kernel, so it needs the
+  three-VM fallback, not containers.
+- **Reset during live verification** — `batch` resets before every run; the
+  Verify button does not, because a container recreate per step would break demo
+  pacing. Correct for these techniques, wrong in general.
+- **Scenario matrix** — `benign_lookalike` and `failed_escalation` need extra lab
+  planting. The benign look-alike is the false-positive answer in docs/05 §2.
+- **No "partial" badge in the dashboard** — the API returns `status: "partial"`
+  and per-step reasons; the UI shows per-step icons and the path as unverified.
+  Left alone because `npm` is unavailable on this machine and an unverifiable
+  frontend change the night before a demo is not worth the risk.
+
+## 25. Frontend contract note
+
+Commit `54958e3` made `risk_score`, `summary.precision` and
+`StatusMetrics.precision` optional in `dashboard/src/types/index.ts` and removed
+the risk-score and precision displays. The API still supplies all three. Worth
+deciding whether to restore the displays rather than leaving live data unused.

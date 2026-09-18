@@ -48,6 +48,7 @@ The single most important idea:
 | `lab/README.md` | The Docker lab: what is planted, what is deliberately *not* reported, and the container-kernel caveat | Whoever touches the lab |
 | `collectors/README.md` | How facts are collected and how to add a probe or a detection rule | Whoever adds a technique |
 | `enumerator/README.md` | How attack paths are actually found: the attacker state model, the three moves, and the two metrics | Whoever touches the analysis |
+| `verifier/README.md` | How a path is *proven* by executing it: the canary test, the three outcomes, and why one step reports not-executable | Whoever is asked "how do you know?" |
 
 ---
 
