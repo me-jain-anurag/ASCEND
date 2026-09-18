@@ -156,7 +156,7 @@ window.ASCEND_DATA = {
         "vector_id": "v_app01_sudo_tar"
       },
       {
-        "from": "app01:root",
+        "from": "app01:low",
         "to": "db01:low",
         "technique": "T1021.004+T1550",
         "technique_name": "Remote Services: SSH (reused credential)",
