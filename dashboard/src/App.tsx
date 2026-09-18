@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Activity, AlertTriangle, Network as NetworkIcon,
-  RefreshCw, ShieldCheck, Target, TrendingDown
+  RefreshCw, ShieldCheck, TrendingDown
 } from 'lucide-react';
 import { api } from './api';
 import type {
@@ -107,14 +107,32 @@ function OverviewTab({
                       Verified
                     </div>
                   </div>
+                  {/* Partial: every step we could run succeeded, but the path
+                      contains at least one step this lab cannot execute. Not
+                      proven, and not disproven either. Without this tile the
+                      row reads "3 tested, 0 verified, 0 failed", and the three
+                      paths appear to have vanished. */}
                   <div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-amber)', lineHeight: 1 }}>
+                      {verifyData.summary.paths_partial ?? 0}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      Partial
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-red)', lineHeight: 1 }}>
                       {verifyData.summary.paths_failed}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                       Failed
                     </div>
                   </div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  <strong>Partial</strong> = every step we could execute succeeded,
+                  but the path contains a step this lab cannot run. Expand a path
+                  to see which one, and why.
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-2)' }}>
                   Run ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{verifyData.execution_run_id}</span>
@@ -208,7 +226,16 @@ export default function App() {
       setBackendOnline(true);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(`Cannot reach backend: ${msg}. Make sure FastAPI is running on port 8000.`);
+      // Only suggest "the server is down" when nothing answered at all. A
+      // 4xx/5xx means the server replied and already explained itself, and
+      // telling the reader to check whether it is running sends them the
+      // wrong way.
+      const answered = /failed \(\d{3}/.test(msg);
+      setError(
+        answered
+          ? msg
+          : `Cannot reach backend: ${msg}. Is the API running on port 8000?`
+      );
       setBackendOnline(false);
     } finally {
       setLoading(false);

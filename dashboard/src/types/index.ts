@@ -37,7 +37,7 @@ export interface VerifyStep { step_number: number; verified: boolean; evidence: 
 export interface VerifyPathResult { overall_verified: boolean; failed_at_step?: number; steps: VerifyStep[]; }
 export interface VerifyData {
   execution_run_id: string; status: string; timestamp: string;
-  summary: { paths_tested: number; paths_verified: number; paths_failed: number; precision?: number; };
+  summary: { paths_tested: number; paths_verified: number; paths_failed: number; paths_partial?: number; precision?: number; };
   results: Record<string, VerifyPathResult>;
 }
 
