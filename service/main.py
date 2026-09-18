@@ -246,15 +246,25 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
             vid = raw_step.get("vector_id")
             vec_meta = vector_map.get(vid, {}) if vid else {}
 
-            # If this step consumed a harvested cred, fold its technique in
+            # Attach the credential to EVERY step that uses it, not just the
+            # first. An attacker who harvests a key keeps holding it, and the
+            # enumerator says so on each lateral step; attaching it once meant
+            # the second hop looked credential-less, and the verifier could not
+            # tell which key to authenticate with.
             cred_for_step = None
-            if pending_cred and raw_step.get("credential"):
+            used_cred_id = raw_step.get("credential")
+            if used_cred_id:
+                cred_data = cred_map.get(used_cred_id, {})
+                disc = cred_data.get("discoverable_at", "")
+                if isinstance(disc, dict):
+                    disc = f"{disc.get('host', '')} ({disc.get('privilege', '')} privilege)"
                 cred_for_step = {
-                    "cred_id": pending_cred["cred_id"],
-                    "type":    pending_cred["type"],
-                    "discoverable_at": pending_cred["discoverable_at"],
+                    "cred_id": used_cred_id,
+                    "type":    cred_data.get("type", "credential"),
+                    "discoverable_at": str(disc),
                 }
-                pending_cred = None
+                if pending_cred and pending_cred["cred_id"] == used_cred_id:
+                    pending_cred = None
 
             host_steps.append({
                 "src_host": src_host, "src_priv": src_priv,
@@ -391,7 +401,7 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
             f"{facts['crown_jewel']['host']}:{facts['crown_jewel']['privilege']}. "
             f"Config coverage {precision['config_covered']}/{precision['proposed']}. "
             f"Execution-verified {precision['verified']}/{precision['proposed']} "
-            f"(no verifier built yet)."
+            f"(POST /api/verify to run the techniques in the lab)."
             + (f" {len(state['applied_fixes'])} fix(es) applied; "
                f"{len(eliminated)} path(s) eliminated."
                if state["applied_fixes"] else "")
@@ -399,98 +409,274 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
     }
 
 
+def _verify_failure_detail(exc: Exception) -> str:
+    """Explain a failed verification run in terms of what to actually do.
+
+    /api/verify is the only endpoint that talks to Docker, so when the rest of
+    the API is fine and this alone fails, the cause is almost always the
+    process's access to the Docker socket rather than anything about the lab.
+    Saying "is the lab up?" for a permission error sends people to restart
+    containers that were never the problem.
+    """
+    text = f"{type(exc).__name__}: {exc}"
+
+    if "Permission denied" in text or "PermissionError" in text:
+        return (
+            "Cannot reach the Docker socket: permission denied. The API process "
+            "is not in the 'docker' group — this is about the terminal that "
+            "started the server, not about the lab. Stop the server, run "
+            "`newgrp docker` (or log out and back in), check `docker ps` works "
+            "without sudo, then start it again. "
+            f"[{text}]"
+        )
+    if "FileNotFoundError" in text or "No such file or directory" in text:
+        return (
+            "Cannot reach the Docker socket: it does not exist. Is the Docker "
+            f"daemon running? `sudo systemctl start docker`. [{text}]"
+        )
+    if "not found" in text.lower() and "container" in text.lower():
+        return (
+            "The lab containers are not running. Start them with "
+            f"`bash lab/up.sh`. [{text}]"
+        )
+    if "ModuleNotFoundError" in text:
+        return (
+            "The verifier's dependencies are missing. Install them with "
+            f"`pip install -r verifier/requirements.txt`. [{text}]"
+        )
+    return f"Verification run failed. {text}"
+
+
+def _credential_locations(facts: dict) -> dict:
+    """{(cred_id, host): path} — where each credential sits on each host.
+
+    Built from the collector's own evidence (features.found_at), so the verifier
+    is told where a key is by the same probe that found it, rather than by a
+    path written into the service.
+    """
+    out: dict[tuple[str, str], str] = {}
+    for cred in facts.get("credentials", []):
+        for loc in (cred.get("features") or {}).get("found_at", []):
+            out[(cred["cred_id"], loc["host"])] = loc["path"]
+    return out
+
+
+def _verifier_edges(path: dict, facts: dict) -> list[dict]:
+    """Translate one enumerated path into verifier edges.
+
+    Each edge says which host to run on, which unprivileged account to start
+    from, and any per-edge technique parameters. The parameters matter: both SSH
+    hops in the lab are the same technique id, so without them the second hop
+    would re-run the first hop's source and target.
+
+    An edge that cannot be expressed is marked unsupported rather than dropped,
+    so a path is never silently reported as shorter than it is.
+    """
+    creds = _credential_locations(facts)
+    edges: list[dict] = []
+
+    for step in path["steps"]:
+        technique_id = step["vector"]["technique"].replace(" ", "")
+        source_host = step["source_host"]
+        target_host = step["target_host"]
+        low_priv_user = step["source_account"]["username"]
+
+        if source_host != target_host:
+            # Lateral movement: run on the SOURCE host, log in to the target.
+            credential = step.get("credential") or {}
+            cred_id = credential.get("cred_id")
+            key_path = creds.get((cred_id, source_host)) if cred_id else None
+
+            if not key_path:
+                # The attacker would carry a harvested key forward; the verifier
+                # cannot stage credentials between hops yet, so it says so
+                # instead of guessing a path.
+                # TODO(verifier): stage the harvested credential onto the source
+                # host so a hop can be verified even where the key is not
+                # already present.
+                edges.append({
+                    "host": source_host,
+                    "start_user": low_priv_user,
+                    "technique_id": technique_id,
+                    "unsupported": (
+                        f"no location recorded for credential "
+                        f"{cred_id or '(none)'} on {source_host}; the verifier "
+                        f"cannot yet carry a harvested credential between hops"
+                    ),
+                })
+                continue
+
+            edges.append({
+                "host": source_host,
+                "start_user": low_priv_user,
+                "technique_id": technique_id,
+                "params": {
+                    "key_path": key_path,
+                    "to_host": target_host,
+                    "to_user": step["target_account"]["username"],
+                },
+            })
+        else:
+            # Local escalation: run on the host, starting as the low-privilege
+            # account the attacker already controls there.
+            edges.append({
+                "host": target_host,
+                "start_user": low_priv_user,
+                "technique_id": technique_id,
+            })
+
+    return edges
+
+
 @app.post("/api/verify")
 def verify_paths():
-    """Per-path and per-step execution-verification outcomes."""
+    """Execute each enumerated path in the lab and report what actually worked.
+
+    Calls verifier.runner.verify_path IN-PROCESS against the live Docker lab.
+    Every step outcome below came from running a real command in a container and
+    checking whether the root-only canary token came back.
+
+    Three step outcomes are possible, and they are not interchangeable:
+
+      verified        the technique ran and privilege genuinely escalated
+      failed          the technique ran and did not work — a real negative
+      not executable  the technique was never attempted, because this lab
+                      cannot meet a precondition (e.g. a kernel exploit needs a
+                      vulnerable kernel, and containers share the host's)
+
+    A path counts as verified only if every step verified. A path containing a
+    not-executable step is reported as partial: not proven, and equally not
+    disproven.
+    """
     facts = _load_facts()
     scope_data = _load_scope()
     effective = _effective_facts(facts, scope_data)
     paths_list = _build_paths_from_enumerator(effective, _baseline_path_ids(facts))
 
     run_id = f"run-{uuid.uuid4().hex[:8]}"
+
+    try:
+        from verifier.runner import verify_path as _verify_path
+        from verifier.outcomes import LIVE_PATH as _LIVE_REL
+        from verifier.scope import load as _load_verifier_scope
+        _LIVE_OUTCOMES = str(_ROOT / _LIVE_REL)
+        vscope = _load_verifier_scope(SCOPE_PATH)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=_verify_failure_detail(exc))
+
     results: dict[str, Any] = {}
+    for path in paths_list:
+        edges = _verifier_edges(path, effective)
 
-    for p in paths_list:
-        pid = p["path_id"]
-        path_edges = []
-        for step in p["steps"]:
-            tech_raw = step["vector"]["technique"]
-            tech_id = tech_raw.replace(" ", "")
-            target_host = step["target_host"]
-            source_host = step["source_host"]
-            if tech_id == "T1552.001":
-                host = source_host
-                start_user = step["source_account"]["username"]
-            elif "T1021" in tech_id:
-                host = source_host
-                start_user = step["source_account"]["username"]
-            else:
-                host = target_host
-                start_user = step["target_account"]["username"]
-            path_edges.append({
-                "host": host,
-                "start_user": start_user,
-                "technique_id": tech_id,
-            })
-
-        # Run verification via WSL verifier CLI or fallback
+        runnable = [e for e in edges if "unsupported" not in e]
         try:
-            cmd = ["wsl", "bash", "-c", "cd /mnt/c/Users/dhyan/OneDrive/Desktop/ASCEND && python3 -m verifier verify"]
-            proc = subprocess.run(
-                cmd,
-                input=json.dumps(path_edges),
-                capture_output=True,
-                text=True,
-                timeout=45,
-            )
-            v_res = json.loads(proc.stdout) if proc.returncode == 0 else {"verified": False, "edges": []}
-        except Exception:
-            v_res = {"verified": False, "edges": []}
+            # Live demo runs go to the audit trail, NOT to outcomes.jsonl:
+            # repeated Verify clicks must not end up as training labels.
+            outcome = _verify_path(
+                runnable, vscope, output_path=_LIVE_OUTCOMES,
+            ) if runnable else {
+                "status": "failed", "edges": [], "not_executable": []
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=_verify_failure_detail(exc))
 
-        # Map back to steps
+        # Map edge outcomes back onto the path's steps, in order.
+        by_index = {}
+        runnable_i = 0
+        for i, edge in enumerate(edges):
+            if "unsupported" in edge:
+                by_index[i] = {
+                    "escalated": False,
+                    "status": "not_executable",
+                    "reason": edge["unsupported"],
+                    "evidence": f"NOT EXECUTABLE: {edge['unsupported']}",
+                }
+            else:
+                got = outcome["edges"][runnable_i] if runnable_i < len(outcome["edges"]) else None
+                by_index[i] = got or {
+                    "escalated": False,
+                    "status": "not_attempted",
+                    "reason": "an earlier step did not succeed",
+                    "evidence": "NOT ATTEMPTED: an earlier step did not succeed",
+                }
+                runnable_i += 1
+
         verify_steps = []
         failed_at = None
-        edges = v_res.get("edges", [])
-        for idx, step in enumerate(p["steps"]):
-            step_num = step["step_number"]
-            edge_data = edges[idx] if idx < len(edges) else {}
-            is_ok = edge_data.get("escalated", False)
-            ev = edge_data.get("evidence", "No evidence recorded")
-            if not is_ok and failed_at is None:
-                failed_at = step_num
+        for i, step in enumerate(path["steps"]):
+            data = by_index.get(i, {})
+            ok = bool(data.get("escalated"))
+            status = data.get("status", "not_attempted")
+            if not ok and failed_at is None:
+                failed_at = step["step_number"]
             verify_steps.append({
-                "step_number": step_num,
-                "verified": is_ok,
+                "step_number": step["step_number"],
+                "verified": ok,
+                "status": status,
+                "reason": data.get("reason", ""),
                 "evidence": {
                     "technique": step["vector"]["technique"],
-                    "exit_code": 0 if is_ok else 1,
-                    "stdout": ev,
-                    "telemetry": f"auditd: {step['vector']['technique']} execution monitored (run {edge_data.get('run_id', run_id)})",
+                    "exit_code": 0 if ok else 1,
+                    "stdout": (data.get("evidence") or "")[:400],
+                    # No syscall telemetry is captured yet; verifier/telemetry.py
+                    # is an interface with no Falco behind it. Saying so beats
+                    # printing a plausible-looking auditd line that nothing
+                    # produced.
+                    "telemetry": (
+                        "not captured — verifier/telemetry.py is a stub; "
+                        "Falco integration is not built"
+                    ),
                 },
             })
 
-        results[pid] = {
-            "overall_verified": v_res.get("verified", False),
+        blocked = [s for s in verify_steps if s["status"] == "not_executable"]
+        attempted_ok = all(
+            s["verified"] for s in verify_steps if s["status"] != "not_executable"
+        )
+        if all(s["verified"] for s in verify_steps):
+            path_status = "verified"
+        elif blocked and attempted_ok:
+            path_status = "partial"
+        else:
+            path_status = "failed"
+
+        results[path["path_id"]] = {
+            "overall_verified": path_status == "verified",
+            "status": path_status,
+            "steps_verified": sum(1 for s in verify_steps if s["verified"]),
+            "steps_total": len(verify_steps),
+            "not_executable": [
+                {"step_number": s["step_number"],
+                 "technique": s["evidence"]["technique"],
+                 "reason": s["reason"]}
+                for s in blocked
+            ],
             **({"failed_at_step": failed_at} if failed_at else {}),
             "steps": verify_steps,
         }
 
     verified_count = sum(1 for r in results.values() if r["overall_verified"])
-    failed_count = len(results) - verified_count
+    partial_count = sum(1 for r in results.values() if r["status"] == "partial")
+    tested = len(results)
+
     resp = {
         "execution_run_id": run_id,
         "status": "completed",
         "timestamp": _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat(),
         "summary": {
-            "paths_tested": len(results),
+            "paths_tested":   tested,
             "paths_verified": verified_count,
-            "paths_failed": failed_count,
+            "paths_failed":   tested - verified_count - partial_count,
+            "paths_partial":  partial_count,
+            # Path-finder precision: verified / proposed. Partial paths count
+            # against it, because a path we could not finish executing is not
+            # a path we have proven.
+            "precision":      round(verified_count / tested, 4) if tested else 0.0,
         },
         "results": results,
     }
     state["last_verification"] = resp
     return resp
-
 
 
 @app.get("/api/remediation")
@@ -586,7 +772,17 @@ def get_status():
         "precision":        f"{precision['config_coverage'] * 100:.1f}%",
         "chokepoints_identified": plan["minimum_cover"]["size"],
 
-        "verified_paths": state["last_verification"]["summary"]["paths_verified"] if state.get("last_verification") else 0,
+        # Execution-verified paths. 0 until /api/verify has been run, and it
+        # counts only FULLY verified paths — a path with a step the lab cannot
+        # execute is partial, not verified.
+        "verified_paths": (
+            state["last_verification"]["summary"]["paths_verified"]
+            if state.get("last_verification") else 0
+        ),
+        "partial_paths": (
+            state["last_verification"]["summary"].get("paths_partial", 0)
+            if state.get("last_verification") else 0
+        ),
 
         # ── Runtime state ────────────────────────────────────────────────────
         "active_scenario":        state["active_scenario"],
@@ -600,6 +796,22 @@ def get_status():
         "status":          fixture.get("status", "ready"),
         "lab_environment": fixture.get("lab_environment", "isolated-docker-network"),
         "summary_metrics": summary_metrics,
+        "verification": (
+            {
+                "run_id":   state["last_verification"]["execution_run_id"],
+                "ran_at":   state["last_verification"]["timestamp"],
+                "verified": state["last_verification"]["summary"]["paths_verified"],
+                "partial":  state["last_verification"]["summary"].get("paths_partial", 0),
+                "failed":   state["last_verification"]["summary"]["paths_failed"],
+                "note": (
+                    "A partial path had every executable step succeed but "
+                    "contains at least one step this lab cannot run. It is "
+                    "neither proven nor disproven."
+                ),
+            }
+            if state.get("last_verification") else
+            {"run_id": None, "note": "no verification run yet — POST /api/verify"}
+        ),
         "data_sources": {
             "facts":        facts.get("_meta", {}).get("source", "unknown"),
             "collected_at": facts.get("_meta", {}).get("collected_at"),
