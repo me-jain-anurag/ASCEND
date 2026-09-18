@@ -88,24 +88,24 @@ which also covers 3 of 3. The sudo misconfiguration only covers 2 of 3. That is
 ## The two numbers, and why they differ
 
 ```
-Config coverage   3/3 = 1.00   the configuration each technique needs is present
-Precision         0/3 = 0.00   paths confirmed end-to-end by EXECUTING them
+Config coverage   6/6 = 1.00   the configuration each technique needs is present
+Precision         3/6 = 0.50   routes confirmed end-to-end by EXECUTING them
 ```
 
 The verifier now exists and runs, so precision is a measured number rather than
 a placeholder — and it is 0 for a specific, stated reason.
 
-**8 of the 11 individual steps across the three paths execute and succeed for
-real**: reading the exposed key, both SSH hops with it, and the `sudo tar`
-escape. The three that don't are all the same final step — the DirtyPipe kernel
-exploit — which cannot run in a container lab because containers share the host
-machine's kernel.
+**19 of the 22 individual steps across the six routes execute and succeed for
+real**: reading the exposed key, both SSH hops with it, the `sudo tar` escape,
+and the setuid `find` escape that reaches root on the crown jewel.
 
-A path is only `verified` if *every* step verified, so all three come back
-**partial**: not proven, and not disproven either. Reporting them as failed
-would claim the attack doesn't work, which is a different and false statement.
-Raising precision above 0 needs a genuinely vulnerable kernel — the three-VM
-fallback in docs/02 §6.
+Three routes are proven end to end. The other three each finish with the
+DirtyPipe kernel exploit, which cannot run in a container lab because containers
+share the host machine's kernel. A route is only `verified` if *every* step
+verified, so those come back **partial**: not proven, and not disproven either.
+Reporting them as failed would claim the attack does not work, which is a
+different and false statement. Verifying them needs a genuinely vulnerable
+kernel — the three-VM fallback in docs/02 §6.
 
 ## What is real, and what is declared
 

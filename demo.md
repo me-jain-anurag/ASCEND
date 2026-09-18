@@ -11,10 +11,10 @@ can run this.
 ## TL;DR
 
 ```bash
-.venv/bin/python tests/test_pipeline.py   # 1. prove the logic  -> 22 passed
+.venv/bin/python tests/test_pipeline.py   # 1. prove the logic  -> 23 passed
 bash lab/down.sh && bash lab/up.sh        # 2. rebuild the lab  -> ~2s cached
-python3 collectors/collect.py             # 3. go look at it    -> 3 vectors
-python3 enumerator/pathfinder.py           # 4. find the routes  -> 3 paths
+python3 collectors/collect.py             # 3. go look at it    -> 4 vectors
+python3 enumerator/pathfinder.py          # 4. find the routes  -> 6 paths
 .venv/bin/python -m verifier check        # 5. lab healthy?     -> canary on 3 hosts
 .venv/bin/python service/main.py          # 6. API   :8000  (own terminal)
 cd dashboard && npm run dev               # 7. UI    :5173  (own terminal)
@@ -98,7 +98,7 @@ cd dashboard && npm install && cd ..
 Check it once, well before demo day:
 
 ```bash
-.venv/bin/python tests/test_pipeline.py    # 22 passed
+.venv/bin/python tests/test_pipeline.py    # 23 passed
 cd dashboard && npm run build && cd ..     # ✓ built
 ```
 
@@ -116,7 +116,7 @@ Three terminals. Two of them stay open.
 # Terminal 1 — build the lab, then analyse it
 bash lab/down.sh && bash lab/up.sh     # 3 containers, ~2s once cached
 python3 collectors/collect.py          # look at them -> facts.json
-python3 enumerator/pathfinder.py       # find the routes -> 3 paths
+python3 enumerator/pathfinder.py       # find the routes -> 6 paths
 .venv/bin/python -m verifier check     # canary reachable on all 3?
 
 # Terminal 2 — the API (leave running)
@@ -128,8 +128,8 @@ cd dashboard && npm run dev            # port 5173
 
 Open <http://localhost:5173>. The header should read **Backend Online**.
 
-**Pre-flight:** `22 passed` · `verifier check` OK on 3 hosts · collector shows
-`3 vectors` and `4` declined · `3 attack paths` · dashboard loads · you clicked
+**Pre-flight:** `23 passed` · `verifier check` OK on 3 hosts · collector shows
+`4 vectors` and `4` declined · `6 attack paths` · dashboard loads · you clicked
 **Reset** so no fix is left applied from a rehearsal.
 
 ---
@@ -260,9 +260,10 @@ log in elsewhere with a held credential (T1021.004 + T1550), or escalate locally
 (T1548.003, T1068). Every sequence ending at `db01:root` is recorded. Visited
 states are pruned, so it terminates.
 
-**Say:** "Three routes from a foothold on web01 to root on the database. Each
-step is a named MITRE ATT&CK technique — a harvested key, a sudo
-misconfiguration, a kernel exploit."
+**Say:** "Six routes from a foothold on web01 to root on the database. Each step
+is a named MITRE ATT&CK technique — a harvested key, a sudo misconfiguration, a
+setuid binary, a kernel exploit. They differ in how they travel, but they all
+start from that one exposed key."
 
 ---
 
@@ -288,24 +289,28 @@ finding. Success means a session actually opened as the expected user.
 What comes back:
 
 ```
-path-01  partial   3 of 4 steps verified
-path-02  partial   2 of 3 steps verified
-path-03  partial   3 of 4 steps verified
+3 verified · 3 partial · 0 failed      precision 0.5
 ```
 
-**Say (the part that passed):** "Everything so far was reasoning. Now we go and
-do it. We read the exposed key as www-data, SSH'd to app01 with it and landed as
-appuser, SSH'd on to db01 as dbuser, and used the sudo rule to become uid 0 on
-app01. Eight of the eleven steps across these three routes were executed and
-confirmed. Not asserted — executed."
+Three routes proven end to end. The other three each stop at the same step.
 
-**Say (the part that didn't) — do not skip this:** "The last step of every route
-is the DirtyPipe kernel exploit, and it reports *not executable*, with the
-reason. Containers share the host machine's kernel, so db01 doesn't really run
-the vulnerable 5.16.0 our graph says it does. We could have made that green very
+**Say (the part that passed):** "Everything so far was reasoning. Now we go and
+do it. Three of these six routes are proven end to end — we read the exposed key
+as www-data, SSH'd to app01 and landed as appuser, SSH'd on to db01 as dbuser,
+and became uid 0 through a setuid binary. Nineteen of the twenty-two individual
+steps executed and succeeded. Not asserted — executed."
+
+**Say (the part that didn't) — do not skip this:** "The other three routes end on
+the DirtyPipe kernel exploit, and that reports *not executable*, with the reason.
+Containers share the host machine's kernel, so db01 doesn't really run the
+vulnerable 5.16.0 our graph says it does. We could have made those green very
 easily. We didn't, because a verifier that reports a success it didn't achieve
-makes every other number we show you worthless. So the route is *partial*: we
-haven't proven it, and we haven't disproven it either."
+makes every other number we show you worthless. So those routes are *partial*:
+not proven, and not disproven either."
+
+**Why this pairing is the point.** The same run produced both a route proven by
+execution and a route we refused to claim. That is the difference between a tool
+that reports what it found and one that reports what you want to hear.
 
 **If asked how you'd finish it:** a genuinely vulnerable kernel, which means the
 three-VM fallback in docs/02 §6 rather than containers.
@@ -323,19 +328,20 @@ and diffs the surviving paths against the baseline. Candidates come in two
 kinds, because they are genuinely different remediations: removing a vector, and
 revoking a reused credential everywhere it is accepted.
 
-**Say:** "Three different fixes each kill all three routes. But patching the
-kernel costs 5 and deleting one file costs 1 — so fix the key first. That
-ranking is computed: for every candidate we remove it, re-run the whole
-path-finder, and count what's left."
+**Say:** "Deleting one file kills all six routes, at cost 1. Patching the kernel
+costs 5 and only kills three, because db01 has a second way to root — so patching
+that CVE alone would leave half the routes open. That ranking is computed: for
+every candidate we remove it, re-run the whole path-finder, and count what's
+left."
 
 ---
 
 ### Beat 7 — "Watch" · 4:30, 30s
 
-**Do:** click **Apply** on **fix-04** (the sudo fix — the 2-of-3 one, *not* the
+**Do:** click **Apply** on **fix-03** (the sudo fix — the 4-of-6 one, *not* the
 one that kills everything). Then **Reset**.
 
-**Why fix-04:** a clean sweep looks like a magic trick. A partial result shows
+**Why fix-03:** a clean sweep looks like a magic trick. A partial result shows
 the tool discriminating, which is more convincing.
 
 **Technically.** Applying a fix stores only the fix id. `/api/enumerate` then
@@ -344,9 +350,9 @@ are absent because they can no longer be *constructed* — nothing is filtered
 from a list. Path ids stay pinned to the baseline enumeration, so the survivor
 keeps its original id rather than being renumbered into a dead one.
 
-**Say:** "Two routes gone. One survives, because that route never used the sudo
-rule. This isn't a filtered list — the path-finder genuinely re-ran against the
-patched configuration and couldn't build those two any more."
+**Say:** "Four routes gone, two survive — because those two never used the sudo
+rule. This isn't a filtered list; the path-finder genuinely re-ran against the
+patched configuration and couldn't build the other four any more."
 
 ---
 
@@ -363,17 +369,22 @@ No — and the tool says so itself, which is the answer.
 > reachability — is measured on the live machine. Switching to three VMs instead
 > of containers makes the kernel measured too, with no code change."
 
-**"Your precision is 0. Is it broken?"**
+**"Your precision is 0.5. What does that actually mean?"**
 
-No, and it is worth explaining carefully, because the number is doing real work.
+> "It means three of our six routes were proven end to end by running them, and
+> three were not. The three that weren't all end on the DirtyPipe kernel exploit,
+> which cannot run in a container lab because containers share the host machine's
+> kernel. We report those as *partial*, not failed — failing would claim the
+> attack doesn't work, and we haven't shown that. Step by step, 19 of the 22
+> individual steps executed and succeeded."
 
-> "Precision counts paths we have proven end to end. Every one of our three paths
-> finishes with the DirtyPipe kernel exploit, and that step cannot run in a
-> container lab, so no path is fully proven — precision is 0 of 3. But that
-> undersells what we verified: 8 of the 11 individual steps ran for real and
-> succeeded. The three that didn't are all the same blocked step, and each one
-> reports why. We call those paths *partial* rather than failed, because failing
-> would claim the attack doesn't work, and we haven't shown that."
+**"Why is db01 root reachable two ways?"**
+
+> "Deliberately. It has a setuid binary and a vulnerable kernel. The setuid route
+> a container can genuinely execute, so it gives us a fully verified path; the
+> kernel route it cannot, so it shows you what we do when we can't verify
+> something. Having both in one demo is the honest picture — and it also shows
+> why patching that one CVE would not be enough."
 
 **"Couldn't you just make that last step pass?"**
 

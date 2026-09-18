@@ -57,8 +57,11 @@ web01:low  --[T1552.001]-->        cred:app_deploy_key    harvest the readable k
 web01:low  --[T1021.004+T1550]-->  app01:low              the key opens app01
 app01:low  --[T1021.004+T1550]-->  db01:low               the SAME key opens db01
 app01:low  --[T1548.003]-->        app01:root             sudo tar spawns a root shell
-db01:low   --[T1068]-->            db01:root              DirtyPipe
+db01:low   --[T1548.001]-->        db01:root              setuid find
 ```
+
+db01 can be rooted two ways — the setuid binary above, or the DirtyPipe kernel
+exploit — which is why the lab yields six routes rather than three.
 
 Note steps 3 and 4: the attacker reaches `db01` *before* taking root on `app01`.
 That ordering is a genuinely distinct path, and it is why the lab yields three
@@ -89,14 +92,15 @@ number:
 
 | Metric | Meaning | Current |
 |---|---|---|
-| `config_coverage` | every vector on the path has the configuration its technique needs | **3/3** |
-| `precision` | the path was confirmed **by executing it** | **0/3** |
+| `config_coverage` | every vector on the path has the configuration its technique needs | **6/6** |
+| `precision` | the path was confirmed **by executing it** | **3/6** |
 
 Config coverage is what reading a machine can establish: *the door is unlocked*.
-Precision requires *we walked through it*, which only `verifier/` can determine —
-and it does not exist yet, so `0` is the honest value rather than a gap to be
-papered over. Vectors carry `verified_exploitable: null` and
-`config_exploitable: true` to keep the two claims apart.
+Precision requires *we walked through it*, which only `verifier/` can determine.
+It sits at 3 of 6 because the three routes ending on the DirtyPipe kernel exploit
+cannot be executed in a container lab — those are reported partial rather than
+failed. Vectors carry `verified_exploitable: null` and `config_exploitable: true`
+to keep the two claims apart.
 
 ---
 
