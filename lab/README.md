@@ -90,6 +90,7 @@ bringing it back up is the reset procedure (docs/02 §6).
 | `web01` | `/var/www/.ssh/id_rsa` at mode **0644** | T1552.001 | yes — a real file at a real mode |
 | `app01` | `appuser ALL=(root) NOPASSWD: /bin/tar` | T1548.003 | yes — a real sudoers rule |
 | `app01` + `db01` | the **same** deploy key in both `authorized_keys` | T1550 | yes — real key reuse |
+| `db01` | setuid-root `/usr/bin/find` | T1548.001 | yes — a real setuid bit |
 | `db01` | declared kernel 5.16.0 → DirtyPipe | T1068 | **declared, not observed** |
 
 Nothing tells the collector where these are. It finds the key by walking the
