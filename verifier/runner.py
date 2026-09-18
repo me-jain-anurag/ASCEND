@@ -13,7 +13,7 @@ from __future__ import annotations
 import random
 import uuid
 
-from verifier.adapters import RunContext, get as get_adapter
+from verifier.adapters import NOT_EXECUTABLE, RunContext, get as get_adapter
 from verifier.lab import (
     canary_token,
     container_image_digest,
@@ -51,28 +51,60 @@ def run_one(
     seed: int = 0,
     output_path: str = "outcomes.jsonl",
     do_reset: bool = True,
+    overrides: dict | None = None,
 ) -> Outcome:
     """Execute one (host, technique, scenario) cell and record the outcome.
 
     This is the inner loop of both ``run_matrix`` (batch) and
     ``verify_path`` (live demo Verify button).
+
+    *overrides* are per-run technique fields merged over the scope.yaml entry.
+    They exist because one scope entry can describe a technique that appears
+    several times in a path with different parameters: the lab's two SSH hops
+    (web01 -> app01 and app01 -> db01) are both "T1021.004+T1550", and without
+    per-edge overrides the second hop would re-run the first hop's parameters
+    and report a leg as verified that was never tested.
+
+    Overrides may only fill in technique PARAMETERS. The adapter, the check and
+    the host allow-list still come from scope.yaml, so an override can never
+    widen what the verifier is permitted to do.
     """
     run_id = uuid.uuid4().hex[:12]
+
+    if overrides:
+        protected = {"id", "adapter", "check", "hosts"}
+        rejected = protected & set(overrides)
+        if rejected:
+            raise ValueError(
+                f"overrides may not change {sorted(rejected)} — those define "
+                f"what the verifier is allowed to run and come from scope.yaml"
+            )
+        technique = {**technique, **overrides}
 
     # 1. Reset to clean state
     if do_reset:
         reset(host, mode=scope.reset_mode, compose_file=scope.compose_file,
               prefix=scope.container_prefix)
 
-    # 2. Guard: start_user must be unprivileged
-    code, out, _ = exec_as(
-        host, start_user, ["id", "-u"], prefix=scope.container_prefix,
-    )
-    if out.strip() == "0":
-        raise RuntimeError(
-            f"start_user {start_user!r} on {host} is already root — "
-            f"the label would be meaningless"
+    # 2. Guard: for a PRIVILEGE-ESCALATION technique the starting account must
+    #    be unprivileged, or the label is meaningless — "escalated to root" is
+    #    trivially true if you began as root.
+    #
+    #    It does not apply to lateral movement. There the question is whether a
+    #    credential opens a session on another host, and an attacker who already
+    #    took root on the current host is a legitimate, common starting state.
+    #    Applying the guard there rejected a real path: on path-03 the attacker
+    #    escalates on app01 and only then hops to db01.
+    if technique.get("requires_unprivileged_start", True):
+        code, out, _ = exec_as(
+            host, start_user, ["id", "-u"], prefix=scope.container_prefix,
         )
+        if out.strip() == "0":
+            raise RuntimeError(
+                f"start_user {start_user!r} on {host} is already root — "
+                f"the label for {technique.get('id', 'this technique')} "
+                f"would be meaningless"
+            )
 
     # 3. Get the expected canary token
     token = canary_token(host, scope.canary_path, prefix=scope.container_prefix)
@@ -99,6 +131,8 @@ def run_one(
         technique=technique["id"],
         scenario=scenario,
         escalated=result.escalated,
+        status=result.status,
+        reason=result.reason,
         evidence=result.evidence,
         raw_cmd=result.raw_cmd,
         telemetry_path=cap.path,
@@ -158,35 +192,75 @@ def verify_path(
     scope: Scope,
     *,
     output_path: str = "outcomes.jsonl",
+    do_reset: bool = False,
 ) -> dict:
     """Live-verify a single enumerated path (the demo Verify button).
 
-    *path_edges* is a list of dicts, each with ``host``, ``start_user``, and
-    ``technique_id``.  Runs each edge's technique in order; a path verifies
-    only if every edge escalates.
+    *path_edges* is a list of dicts with ``host``, ``start_user``,
+    ``technique_id``, and an optional ``params`` dict of per-edge technique
+    overrides (see :func:`run_one`).
+
+    A path has three possible verdicts, and the distinction matters:
+
+    ``verified``   every edge ran and escalated.
+    ``failed``     an edge ran and did not escalate — a real negative result.
+    ``partial``    every edge that could be attempted escalated, but at least
+                   one could not be attempted in this lab at all. The path is
+                   NOT verified; neither has it been shown not to work.
+
+    Without ``partial`` the lab's own limitations would be reported as evidence
+    against the attack path, which is a different and false claim.
+
+    Reset defaults to off here: the demo re-verifies interactively and a
+    recreate per edge would take the button out of demo timing. The batch
+    matrix, which produces training labels, always resets.
     """
     edges = []
     for edge in path_edges:
         tech = scope.technique(edge["technique_id"])
-        o = run_one(
+        outcome = run_one(
             host=edge["host"],
             start_user=edge.get("start_user", tech.start_user),
             technique=tech.raw,
             scenario="live",
             scope=scope,
             output_path=output_path,
+            do_reset=do_reset,
+            overrides=edge.get("params"),
         )
         edges.append({
             "edge": edge,
-            "escalated": o.escalated,
-            "run_id": o.run_id,
-            "evidence": o.evidence,
+            "escalated": outcome.escalated,
+            "status": outcome.status,
+            "reason": outcome.reason,
+            "run_id": outcome.run_id,
+            "evidence": outcome.evidence,
         })
-        if not o.escalated:
-            break   # path is broken here; downstream edges unproven
+        # Stop on a genuine failure: downstream edges start from a foothold the
+        # attacker never obtained, so running them would prove nothing. A
+        # not_executable edge stops the walk for the same reason.
+        if not outcome.escalated:
+            break
 
-    verified = (
-        all(e["escalated"] for e in edges)
-        and len(edges) == len(path_edges)
-    )
-    return {"verified": verified, "edges": edges}
+    attempted = [e for e in edges if e["status"] != NOT_EXECUTABLE]
+    blocked = [e for e in edges if e["status"] == NOT_EXECUTABLE]
+    complete = len(edges) == len(path_edges)
+
+    if complete and all(e["escalated"] for e in edges):
+        status = "verified"
+    elif blocked and all(e["escalated"] for e in attempted):
+        status = "partial"
+    else:
+        status = "failed"
+
+    return {
+        "verified": status == "verified",
+        "status": status,
+        "edges": edges,
+        "edges_total": len(path_edges),
+        "edges_escalated": sum(1 for e in edges if e["escalated"]),
+        "not_executable": [
+            {"technique_id": e["edge"]["technique_id"], "reason": e["reason"]}
+            for e in blocked
+        ],
+    }

@@ -27,12 +27,31 @@ class RunContext:
     container_prefix: str = "ascend-"
 
 
+# ── Outcome states ────────────────────────────────────────────────────────────
+# Three states, not two. "Did not escalate" and "could not be attempted here"
+# are different facts, and collapsing them is how a verifier starts lying:
+# a technique the lab cannot host would otherwise be recorded as evidence that
+# the technique does not work.
+ESCALATED = "escalated"          # ran, and privilege genuinely increased
+NOT_ESCALATED = "not_escalated"  # ran, and it did not work — a real negative label
+NOT_EXECUTABLE = "not_executable"  # never ran: a precondition the lab cannot meet
+
+
 @dataclass
 class AdapterResult:
     """What an adapter returns after executing a technique."""
     escalated: bool
     evidence: str                 # last lines of the deciding output
     raw_cmd: list[str]            # exactly what was executed, for reproducibility
+    status: str = ESCALATED       # one of the three states above
+    reason: str = ""              # why, when status is NOT_EXECUTABLE
+
+    def __post_init__(self):
+        # Keep the boolean and the state from ever disagreeing.
+        if self.escalated:
+            self.status = ESCALATED
+        elif self.status == ESCALATED:
+            self.status = NOT_ESCALATED
 
 
 # ── Registry ──────────────────────────────────────────────────────────────────

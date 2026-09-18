@@ -17,6 +17,22 @@ from pathlib import Path
 from typing import Any
 
 
+# ── Where outcomes go ────────────────────────────────────────────────────────
+# Two separate streams, deliberately.
+#
+# BATCH_PATH is the labelled dataset the exploitability scorer trains on. It is
+# produced by `python -m verifier batch` with a fixed seed, and is meant to be
+# reproducible.
+#
+# LIVE_PATH is the audit trail of interactive runs from the dashboard's Verify
+# button. These are demo clicks: the same technique repeated whenever someone
+# presses the button. Letting them into the training set would silently
+# reweight the dataset toward whatever was demonstrated most often, so they are
+# recorded separately and the live file is not committed.
+BATCH_PATH = "outcomes.jsonl"
+LIVE_PATH = "verifier/runs/live.jsonl"
+
+
 @dataclass
 class Outcome:
     """A single verifier execution result."""
@@ -28,6 +44,12 @@ class Outcome:
     escalated: bool
     evidence: str
     raw_cmd: list[str]
+    # "escalated" | "not_escalated" | "not_executable". `escalated` stays a
+    # bool for the scorer's label column; `status` is what distinguishes a real
+    # negative from a run that never happened. Only the first two are training
+    # data — a not_executable row is a note about the lab, not about the host.
+    status: str = "escalated"
+    reason: str = ""
     telemetry_path: str = ""
     seed: int = 0
     kernel_version: str = ""
@@ -44,19 +66,20 @@ class Outcome:
             )
 
 
-def append(outcome: Outcome, path: str | Path = "outcomes.jsonl") -> None:
+def append(outcome: Outcome, path: str | Path = BATCH_PATH) -> None:
     """Append *outcome* as a single JSON line to *path*.
 
     Creates the file if it doesn't exist.  Flush guarantees the record is
     durable before we return — a crash between runs loses nothing.
     """
     rec = asdict(outcome)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec) + "\n")
         f.flush()
 
 
-def load(path: str | Path = "outcomes.jsonl") -> list[dict[str, Any]]:
+def load(path: str | Path = BATCH_PATH) -> list[dict[str, Any]]:
     """Read all outcome records from *path*."""
     p = Path(path)
     if not p.exists():
