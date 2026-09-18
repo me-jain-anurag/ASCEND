@@ -386,5 +386,149 @@ def test_responses_match_the_typescript_interfaces():
 
     _check(client.post("/api/verify").json(), _VERIFY, "VerifyData")
 
+
+# ─── Verifier: the honesty invariants ─────────────────────────────────────────
+# These exist because the verifier previously shipped a "DirtyPipe exploit" that
+# was a setuid-root stub calling setuid(0). It reported T1068 as verified on any
+# kernel. A fabricated success is worse than no verifier at all, since every
+# other number the project publishes then rests on it.
+
+def test_no_exploit_code_or_binaries_are_shipped():
+    """lab/exploits/ must hold documentation only — never a binary."""
+    exploits = ROOT / "lab" / "exploits"
+    if not exploits.is_dir():
+        raise Skip("lab/exploits/ not present")
+    unexpected = [p.name for p in exploits.iterdir()
+                  if p.is_file() and p.suffix not in (".md", "")
+                  or (p.is_file() and p.suffix == "" and p.name != ".gitkeep")]
+    assert not unexpected, f"lab/exploits/ contains artifacts: {unexpected}"
+
+
+def test_exploit_artifacts_are_never_installed_setuid():
+    """A privesc exploit that needs a setuid bit is not demonstrating the bug.
+
+    Installing one 4755 makes the verifier measure the file mode instead of the
+    vulnerability, which is exactly how the fabricated T1068 pass was produced.
+    """
+    seed = ROOT / "lab" / "seed"
+    for script in seed.glob("*.sh"):
+        for lineno, line in enumerate(script.read_text().splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if "/opt/exploits" in code and "install" in code:
+                assert "4755" not in code and "u+s" not in code, (
+                    f"{script.name}:{lineno} installs an exploit setuid: {line.strip()}"
+                )
+
+
+def test_kernel_exploit_is_not_executable_on_a_shared_kernel():
+    """T1068 must report not_executable, never a pass or a fail, when the
+    RUNNING kernel is not in the affected range."""
+    sys.path.insert(0, str(ROOT))
+    from verifier.adapters.anchor_cve import _kernel_is_vulnerable
+
+    spec = {"affected_from": "5.8.0",
+            "fixed_versions": ["5.10.102", "5.15.25", "5.16.11"]}
+
+    # A modern host kernel — the container-lab reality.
+    vulnerable, why = _kernel_is_vulnerable("7.2.6-x64v3-xanmod1", spec)
+    assert not vulnerable
+    assert "newer than every affected branch" in why
+
+    # Genuinely vulnerable, and genuinely patched, on the same branch.
+    assert _kernel_is_vulnerable("5.16.0", spec)[0] is True
+    assert _kernel_is_vulnerable("5.16.11", spec)[0] is False
+    assert _kernel_is_vulnerable("5.10.150", spec)[0] is False   # branch-patched
+    assert _kernel_is_vulnerable("5.4.0", spec)[0] is False      # pre-affected
+    assert _kernel_is_vulnerable("", spec)[0] is False           # unknown kernel
+
+
+def test_adapter_result_state_cannot_contradict_itself():
+    sys.path.insert(0, str(ROOT))
+    from verifier.adapters import (AdapterResult, ESCALATED, NOT_ESCALATED,
+                                   NOT_EXECUTABLE)
+
+    assert AdapterResult(True, "", []).status == ESCALATED
+    assert AdapterResult(False, "", []).status == NOT_ESCALATED
+    blocked = AdapterResult(False, "", [], status=NOT_EXECUTABLE, reason="no kernel")
+    assert blocked.status == NOT_EXECUTABLE and not blocked.escalated
+
+
+def test_overrides_cannot_widen_what_the_verifier_may_run():
+    """Per-edge overrides fill in parameters; they must not be able to change
+    the adapter, the check, or the host allow-list."""
+    sys.path.insert(0, str(ROOT))
+    from verifier.runner import run_one
+    from verifier.scope import load as load_scope
+
+    scope = load_scope(ROOT / "scope.yaml")
+    tech = scope.technique("T1021.004+T1550")
+    for field in ("adapter", "check", "hosts", "id"):
+        try:
+            run_one(host="web01", start_user="www-data", technique=tech.raw,
+                    scenario="test", scope=scope, do_reset=False,
+                    overrides={field: "anything"})
+        except ValueError as exc:
+            assert field in str(exc)
+        else:
+            raise AssertionError(f"override of {field!r} was accepted")
+
+
+def test_verify_endpoint_reports_blocked_steps_as_not_executable():
+    """End-to-end: the live lab must produce partial paths with a stated
+    reason, never a silent pass. Skips when the lab is not running."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    client = TestClient(main.app)
+    client.post("/api/reset")
+
+    resp = client.post("/api/verify")
+    if resp.status_code == 503:
+        raise Skip("lab not running (bash lab/up.sh)")
+    data = resp.json()
+
+    assert data["summary"]["paths_tested"] > 0
+    for path_id, result in data["results"].items():
+        assert result["status"] in ("verified", "partial", "failed"), path_id
+        # A path is only "verified" if every single step verified.
+        if result["status"] == "verified":
+            assert all(s["verified"] for s in result["steps"]), path_id
+        # Every blocked step must say why it was blocked.
+        for step in result["steps"]:
+            if step["status"] == "not_executable":
+                assert step["reason"], f"{path_id} step {step['step_number']} has no reason"
+                assert not step["verified"]
+
+    # T1068 cannot be executed in a container lab, so no path may claim it.
+    for path_id, result in data["results"].items():
+        for step in result["steps"]:
+            if step["evidence"]["technique"] == "T1068":
+                assert not step["verified"], (
+                    f"{path_id} claims T1068 verified — containers share the "
+                    f"host kernel, so this cannot be genuine"
+                )
+
+
+def test_telemetry_is_not_fabricated():
+    """telemetry.py is a stub, so the evidence must say so rather than printing
+    a plausible-looking auditd line that nothing produced."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    client = TestClient(main.app)
+    resp = client.post("/api/verify")
+    if resp.status_code == 503:
+        raise Skip("lab not running")
+    for result in resp.json()["results"].values():
+        for step in result["steps"]:
+            telemetry = step["evidence"]["telemetry"]
+            assert "not captured" in telemetry, telemetry
+
 if __name__ == "__main__":
     sys.exit(main())
