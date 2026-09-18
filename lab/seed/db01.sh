@@ -14,9 +14,20 @@ ascend_authorize dbuser
 # this attribute cannot be genuine here; probes/kernel.py always reports the
 # real `uname -r` next to it and tags the vector provenance: declared.
 # The VM fallback in docs/02 section 6 makes this fact observed instead.
+# BRING YOUR OWN BINARY — see lab/exploits/README.md.
+#
+# A real CVE-2022-0847 exploit binary dropped into lab/exploits/ is installed
+# here as an ORDINARY executable. It is deliberately NOT setuid: an exploit that
+# needs a setuid bit to reach root is not demonstrating the kernel bug, and the
+# verifier would then be measuring the file mode. A previous version of this
+# lab did exactly that and produced a fabricated "DirtyPipe verified" result.
+#
+# Containers share the host kernel, so this technique reports not_executable
+# here whatever is installed. The three-VM fallback (docs/02 section 6) is what
+# makes it runnable for real.
 if [[ -f /tmp/exploits/exploit ]]; then
     install -d -m 755 /opt/exploits/CVE-2022-0847
-    install -m 4755 -o root -g root /tmp/exploits/exploit /opt/exploits/CVE-2022-0847/exploit
+    install -m 0755 -o root -g root /tmp/exploits/exploit /opt/exploits/CVE-2022-0847/exploit
 fi
 
 install -d -m 750 -o dbuser -g dbuser /var/lib/appdata
