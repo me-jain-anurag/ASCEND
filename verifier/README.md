@@ -1,7 +1,7 @@
 # `verifier/` — proving the attack paths are real
 
 ```
-environment_graph/facts.json ──► pathfinder ──► 3 attack paths
+environment_graph/facts.json ──► pathfinder ──► 6 attack paths
                                                      │
                                     "are these real?" │
                                                      ▼
@@ -98,14 +98,20 @@ masquerading as findings.
 
 Run against the current lab, this is the real output:
 
-| Path | Result | Steps |
-|---|---|---|
-| path-01 | partial | 3 of 4 verified |
-| path-02 | partial | 2 of 3 verified |
-| path-03 | partial | 3 of 4 verified |
+| Paths | Result |
+|---|---|
+| 3 | **verified** — every step executed and succeeded |
+| 3 | **partial** — every executable step succeeded, one step could not run |
+| 0 | failed |
 
-**8 of 11 steps genuinely executed and confirmed.** The 3 that didn't are all
-the same DirtyPipe step, each carrying its reason.
+Precision **0.5**. **19 of 22 individual steps genuinely executed and
+confirmed.** The 3 that did not are all the same DirtyPipe step, each carrying
+its reason.
+
+db01 is reachable as root two ways on purpose: a setuid-root `find`, which a
+container can genuinely execute, and the DirtyPipe kernel exploit, which it
+cannot. The first gives the verifier a complete path to prove; the second shows
+what it does when a technique is out of reach.
 
 What actually gets executed, for real, every time:
 
@@ -113,6 +119,7 @@ What actually gets executed, for real, every time:
 - SSH `web01 → app01` with that key, landing as `appuser`
 - SSH `app01 → db01` with the same key, landing as `dbuser`
 - the `sudo tar` shell escape on `app01`, landing as `uid=0`
+- the setuid `find` escape on `db01`, landing as `uid=0` on the crown jewel
 
 ## How it fits the rest of ASCEND
 
@@ -160,7 +167,7 @@ set toward whatever got demonstrated most.
 
 | Adapter | Techniques | How it triggers |
 |---|---|---|
-| `config_abuse` | T1548.003, T1552.001 | `sudo tar --checkpoint-action=exec`, and reading the key file |
+| `config_abuse` | T1548.003, T1548.001, T1552.001 | `sudo tar --checkpoint-action=exec`, the setuid `find` escape, and reading the key file |
 | `lateral_ssh` | T1021.004 + T1550 | copies the key somewhere private, `chmod 600`, SSHes |
 | `anchor_cve` | T1068 | runs a pre-placed exploit binary — brings none of its own |
 

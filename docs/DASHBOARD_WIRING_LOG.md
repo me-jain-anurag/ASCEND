@@ -567,3 +567,78 @@ Commit `54958e3` made `risk_score`, `summary.precision` and
 `StatusMetrics.precision` optional in `dashboard/src/types/index.ts` and removed
 the risk-score and precision displays. The API still supplies all three. Worth
 deciding whether to restore the displays rather than leaving live data unused.
+
+---
+
+# Part 6 — a second route to root on db01
+
+## 26. Why the lab needed another escalation
+
+Every path ended on the DirtyPipe kernel exploit, because that was the only
+vector granting root on `db01` — and root on `db01` is the goal. A container lab
+shares the host machine's kernel, so that step can never execute, and therefore
+**no path could ever be verified end to end**. Precision was structurally pinned
+at zero, whatever the verifier did.
+
+That is a property of the lab, not of the analysis. The fix is to give `db01` a
+second way to root that a container genuinely can execute.
+
+## 27. What was planted
+
+`lab/seed/db01.sh` now leaves `/usr/bin/find` setuid root, alongside a plausible
+`nightly-index` maintenance script that explains why an admin might have done it.
+The GTFOBins escape needs `sh -p`: without it the shell drops the inherited euid
+and the attempt silently gains nothing.
+
+This is a real weakness, not a prop. It is T1548.001, it is in scope, and the
+verifier reaches root through it for real.
+
+**The collector found it with no change to `collectors/`.** `rules.suid` in
+`scope.yaml` already matched: `find` is outside the Debian baseline and has a
+documented shell escape. The new vector `v_db01_suid_find` appeared on the next
+collection run, which is the rules generalising rather than being widened.
+
+## 28. What changed as a result
+
+| | Before | After |
+|---|---|---|
+| Vectors | 3 | 4 |
+| Paths | 3 | 6 |
+| Verified paths | 0 | **3** |
+| Partial paths | 3 | 3 |
+| Steps verified | 8 of 11 | **19 of 22** |
+| Precision | 0.0 | **0.5** |
+
+The remediation ranking became more informative too. Patching CVE-2022-0847 now
+kills only 3 of 6, because db01 has a second route — so a reviewer can see
+directly why patching one CVE is not sufficient. The exposed key still kills all
+6 at cost 1 and remains the minimum cover.
+
+Fix ids shifted, since ranking is positional: the sudo fix is now `fix-03`.
+`demo.md` is updated accordingly.
+
+## 29. Verifier changes
+
+- `config_abuse` gains a `suid_binary` check. It confirms the setuid bit is
+  actually set before running anything, and reports `not_executable` when it is
+  not — the same distinction `anchor_cve` makes for the kernel, so a missing
+  precondition never becomes a negative label about the technique.
+- `lab.file_mode()` reads four-digit octal permissions so the setuid bit is
+  visible.
+
+## 30. Tests
+
+Count assertions were rewritten as relationships. Hard-coding "3 paths" recorded
+what the lab happened to contain on the day the test was written, and six tests
+broke at once when the lab legitimately changed. They now assert what must hold
+regardless: enumerated paths match what the status endpoint reports, a fix
+removes at least one path and reset restores exactly what it removed, the
+efficacy curve starts at the true path count, and baseline ids cover the paths
+that exist.
+
+One invariant added: a path may only claim `verified` when **every** step
+genuinely escalated — never when a step was skipped. That is the assertion that
+would have caught the fabricated DirtyPipe result, and it now also guards the
+newly-verifiable paths.
+
+23 checks in the pipeline suite, plus 19 in the verifier suite.
