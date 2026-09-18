@@ -38,5 +38,25 @@ EOF
 chmod 640 /var/lib/appdata/README
 chown root:root /var/lib/appdata/README
 
+# ── PLANTED VECTOR: T1548.001 — Setuid/Setgid ────────────────────────────────
+# A setuid-root `find`, the way a careless maintenance script leaves one behind.
+#
+# Unlike the kernel exploit above, this one a container CAN actually execute, so
+# the verifier can walk a complete path to root on the crown jewel and prove it.
+# It is a genuine weakness, not a prop: GTFOBins documents the escape, the
+# collector detects it through rules.suid in scope.yaml (find is outside the
+# Debian baseline and has a documented shell escape), and nothing tells the
+# collector it is here.
+#
+# The escape needs `sh -p`: without it the shell drops the inherited euid and
+# the attempt silently gains nothing.
+cat > /usr/local/sbin/nightly-index <<'SCRIPT'
+#!/bin/sh
+# Nightly index of customer records. Runs from cron as root.
+find /var/lib/appdata -type f -newer /etc/hostname
+SCRIPT
+chmod 755 /usr/local/sbin/nightly-index
+chmod u+s /usr/bin/find
+
 ascend_lock_passwords
 ascend_canary
