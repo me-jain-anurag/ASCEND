@@ -1,5 +1,5 @@
 {
-  "_comment": "Committed raw probe capture of the reference lab (web01 -> app01 -> db01), RECORDED FROM AN ACTUAL `bash lab/up.sh` RUN by collectors/collect.py --save-raw. Replay it through the current rules with no Docker present:\\n    python3 collectors/collect.py --from-raw collectors/fixtures/lab_capture.json\\nThe SSH fingerprint is replaced with a fixed placeholder because the deploy key is generated per clone; a raw capture never contains key material. Contains the lab's negative controls \u2014 a 0600 copy of the same key on app01, a NOPASSWD /bin/ls rule, a patched 5.10 kernel, and the Debian baseline setuid binaries \u2014 all of which the rules must DECLINE to report.",
+  "_comment": "Committed raw probe capture of the reference lab (web01 -> app01 -> db01), RECORDED FROM AN ACTUAL `bash lab/up.sh` RUN by collectors/collect.py --save-raw. Replay it through the current rules with no Docker present:\\n    python3 collectors/collect.py --from-raw collectors/fixtures/lab_capture.json\\nThe SSH fingerprint is replaced with a fixed placeholder because the deploy key is generated per clone; a raw capture never contains key material. db01 carries two routes to root: a setuid-root find (executable in a container) and a declared-vulnerable kernel (not). Contains the lab's negative controls \u2014 a 0600 copy of the same key on app01, a NOPASSWD /bin/ls rule, a patched 5.10 kernel, and the Debian baseline setuid binaries \u2014 all of which the rules must DECLINE to report.",
   "hosts": {
     "app01": {
       "accounts": [
@@ -79,7 +79,7 @@
         {
           "address": "127.0.0.11",
           "loopback": true,
-          "port": 38183,
+          "port": 42463,
           "process": null,
           "proto": "tcp",
           "service": "unknown"
@@ -244,7 +244,7 @@
         {
           "address": "127.0.0.11",
           "loopback": true,
-          "port": 34763,
+          "port": 38331,
           "process": null,
           "proto": "tcp",
           "service": "unknown"
@@ -268,6 +268,13 @@
           "owner": "root",
           "path": "/usr/bin/chsh",
           "size": 52880
+        },
+        {
+          "group": "root",
+          "mode": "4755",
+          "owner": "root",
+          "path": "/usr/bin/find",
+          "size": 224848
         },
         {
           "group": "root",
@@ -392,7 +399,7 @@
         {
           "address": "127.0.0.11",
           "loopback": true,
-          "port": 34355,
+          "port": 36207,
           "process": null,
           "proto": "tcp",
           "service": "unknown"
@@ -484,7 +491,7 @@
           "result": "open"
         },
         {
-          "endpoint": "172.18.0.3",
+          "endpoint": "172.18.0.2",
           "result": "open"
         }
       ],
@@ -501,7 +508,7 @@
           "result": "open"
         },
         {
-          "endpoint": "172.19.0.3",
+          "endpoint": "172.19.0.2",
           "result": "open"
         }
       ],
@@ -518,12 +525,12 @@
           "result": "open"
         },
         {
-          "endpoint": "172.18.0.2",
+          "endpoint": "172.18.0.3",
           "result": "open"
         },
         {
           "detail": "Network is unreachable",
-          "endpoint": "172.19.0.2",
+          "endpoint": "172.19.0.3",
           "result": "refused"
         }
       ],
@@ -542,7 +549,7 @@
         },
         {
           "detail": "Network is unreachable",
-          "endpoint": "172.19.0.3",
+          "endpoint": "172.19.0.2",
           "result": "refused"
         }
       ],
@@ -560,11 +567,11 @@
         },
         {
           "detail": "Network is unreachable",
-          "endpoint": "172.18.0.2",
+          "endpoint": "172.18.0.3",
           "result": "refused"
         },
         {
-          "endpoint": "172.19.0.2",
+          "endpoint": "172.19.0.3",
           "result": "open"
         }
       ],
@@ -583,7 +590,7 @@
         },
         {
           "detail": "Network is unreachable",
-          "endpoint": "172.18.0.3",
+          "endpoint": "172.18.0.2",
           "result": "refused"
         }
       ],
