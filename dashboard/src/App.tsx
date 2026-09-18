@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Activity, AlertTriangle, Network as NetworkIcon,
-  RefreshCw, ShieldCheck, TrendingDown
+  RefreshCw, ShieldCheck, TrendingDown, Home
 } from 'lucide-react';
 import { api } from './api';
 import type {
@@ -14,6 +14,24 @@ import RemediationPanel from './components/RemediationPanel';
 import Sidebar from './components/Sidebar';
 
 type Tab = 'overview' | 'network' | 'paths' | 'remediation';
+
+const TABS: Tab[] = ['overview', 'network', 'paths', 'remediation'];
+
+/**
+ * The visible tab lives in the URL hash rather than in component state alone.
+ *
+ * Without this, opening Attack Paths left the URL unchanged, so browser Back
+ * navigated away from the app instead of returning to the overview, and the
+ * only route home was a reload — which discards the verification results you
+ * just spent ten seconds producing.
+ *
+ * The browser already keeps hash history, so Back and Forward work for free,
+ * and a tab becomes linkable and refresh-safe.
+ */
+function tabFromHash(): Tab {
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  return (TABS as string[]).includes(raw) ? (raw as Tab) : 'overview';
+}
 type Scenario = 'default' | 'benign';
 
 // ─── Loading / Error helpers ──────────────────────────────────────────────────
@@ -183,7 +201,28 @@ function StatCard({
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>(tabFromHash);
+
+  // Back/Forward change the hash; mirror that into state.
+  useEffect(() => {
+    const onHashChange = () => setActiveTab(tabFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  /**
+   * Switch tabs by navigating. Assigning to location.hash adds a history entry,
+   * and the listener above updates the state — so every tab change goes through
+   * one path whether it came from the sidebar, a quick-nav button, the Home
+   * button, or the browser's own Back.
+   */
+  const goToTab = useCallback((tab: Tab) => {
+    if (tabFromHash() === tab) {
+      setActiveTab(tab);      // already there; nothing to push
+      return;
+    }
+    window.location.hash = tab;
+  }, []);
   const [scenario, setScenario] = useState<Scenario>('default');
 
   // Data states
@@ -336,6 +375,18 @@ export default function App() {
         </div>
 
         <button
+          id="topbar-home"
+          className="btn btn-ghost"
+          onClick={() => goToTab('overview')}
+          title="Back to overview"
+          aria-label="Back to overview"
+          disabled={activeTab === 'overview'}
+          style={{ padding: '6px 10px' }}
+        >
+          <Home size={14} />
+        </button>
+
+        <button
           id="topbar-refresh"
           className="btn btn-ghost"
           onClick={() => fetchAll(scenario)}
@@ -350,7 +401,7 @@ export default function App() {
       <Sidebar
         status={status}
         activeTab={activeTab}
-        onTabChange={t => setActiveTab(t as Tab)}
+        onTabChange={t => goToTab(t as Tab)}
         onReset={handleReset}
         loading={loading}
       />
@@ -366,7 +417,7 @@ export default function App() {
             loading && !status
               ? <Loader text="Connecting to ASCEND Analysis Core…" />
               : status
-                ? <OverviewTab status={status} paths={paths} verifyData={verifyData} onSwitchTab={t => setActiveTab(t)} />
+                ? <OverviewTab status={status} paths={paths} verifyData={verifyData} onSwitchTab={t => goToTab(t)} />
                 : !error && <Loader text="Connecting…" />
           )}
 
