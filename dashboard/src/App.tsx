@@ -548,6 +548,8 @@ export default function App() {
                   appliedFixes={appliedFixes}
                   onApply={handleApplyFix}
                   applying={applying}
+                  verifiedPathIds={verifiedPathIds}
+                  hasVerifyRun={!!verifyData}
                 />
               ) : null}
             </>

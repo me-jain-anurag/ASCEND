@@ -49,7 +49,15 @@ export interface Fix {
   efficacy_percentage: number; is_recommended_chokepoint: boolean;
 }
 export interface EfficacyPoint { fixes_applied: number; paths_remaining: number; paths_eliminated: number; reduction_pct: number; }
-export interface RemediationData { total_verified_paths: number; ranked_fixes: Fix[]; efficacy_curve: EfficacyPoint[]; }
+export interface RemediationData {
+  // NOTE: the service returns the ENUMERATED path count in total_verified_paths;
+  // the name is legacy. Prefer total_enumerated_paths when present.
+  total_verified_paths: number;
+  total_enumerated_paths?: number;
+  _verification_note?: string;
+  ranked_fixes: Fix[];
+  efficacy_curve: EfficacyPoint[];
+}
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 export interface StatusMetrics {
