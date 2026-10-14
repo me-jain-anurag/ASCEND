@@ -2,7 +2,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { CheckCircle, Star, Zap } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Zap } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { RemediationData, Fix } from '../types';
 
 interface Props {
@@ -10,7 +11,24 @@ interface Props {
   appliedFixes: string[];
   onApply: (fixId: string) => void;
   applying?: string | null;
+  /** Path ids proven by execution in the last verify run. */
+  verifiedPathIds?: string[];
+  /** Whether a verify run has happened at all — an empty list is ambiguous. */
+  hasVerifyRun?: boolean;
 }
+
+// Efficacy is measured by re-running the path-finder with the fix removed, but
+// it is measured against ENUMERATED paths — no path has been execution-verified
+// at this point. Say so rather than letting a bare number imply proof.
+const NOT_YET_VERIFIED_NOTE =
+  'Predicted eliminations. Each figure is measured by removing the fix and ' +
+  're-running the path-finder, but against enumerated paths — nothing here has ' +
+  'been execution-verified yet. Run Verify to see what actually executed.';
+
+const verifiedNote = (verified: number, total: number) =>
+  `Eliminations are measured by removing each fix and re-running the path-finder. ` +
+  `${verified} of ${total} enumerated paths are execution-verified; each fix below ` +
+  `shows how many of the paths it removes were proven by execution.`;
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] }) {
   if (!active || !payload?.length) return null;
@@ -24,21 +42,39 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: any[] 
         Paths remaining: {d.paths_remaining}
       </div>
       <div style={{ color: 'var(--accent-green)', fontSize: 12 }}>
-        Reduction: {d.reduction_pct}%
+        Eliminated: {d.paths_eliminated}
       </div>
     </div>
   );
 }
 
-function costStars(cost: number) {
-  const max = 5;
-  return Array.from({ length: max }, (_, i) => (
-    <Star key={i} size={10} fill={i < cost ? 'var(--accent-amber)' : 'none'}
-      color={i < cost ? 'var(--accent-amber)' : 'var(--text-2)'} />
-  ));
+function WipNote({ children }: { children: ReactNode }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 8,
+      padding: '8px 10px', marginBottom: 12,
+      border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-amber)',
+      borderRadius: 4, background: 'var(--bg-2)',
+      fontSize: 11, lineHeight: 1.5, color: 'var(--text-2)',
+    }}>
+      <AlertTriangle size={13} color="var(--accent-amber)" style={{ flexShrink: 0, marginTop: 1 }} />
+      <span>{children}</span>
+    </div>
+  );
 }
 
-export default function RemediationPanel({ data, appliedFixes, onApply, applying }: Props) {
+export default function RemediationPanel({
+  data, appliedFixes, onApply, applying,
+  verifiedPathIds = [], hasVerifyRun = false,
+}: Props) {
+  // total_verified_paths is a legacy field name: the service returns the
+  // ENUMERATED count in it. Prefer the correctly named field when present.
+  const totalPaths = data.total_enumerated_paths ?? data.total_verified_paths;
+  const verifiedSet = new Set(verifiedPathIds);
+  const note = hasVerifyRun
+    ? verifiedNote(verifiedSet.size, totalPaths)
+    : (data._verification_note ?? NOT_YET_VERIFIED_NOTE);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -47,6 +83,9 @@ export default function RemediationPanel({ data, appliedFixes, onApply, applying
         <div className="card-header">
           <Zap size={16} color="var(--accent-amber)" />
           <h2>Fixes-vs-Paths Efficacy Curve</h2>
+          <span className="tag tag-gray" style={{ marginLeft: 'auto', fontSize: 10 }}>
+            {hasVerifyRun ? 'predicted · verify run complete' : 'predicted'}
+          </span>
         </div>
         <div className="card-body">
           <ResponsiveContainer width="100%" height={200}>
@@ -82,10 +121,12 @@ export default function RemediationPanel({ data, appliedFixes, onApply, applying
           </span>
         </div>
         <div className="card-body">
+          <WipNote>{note}</WipNote>
           <div className="fix-list">
             {data.ranked_fixes.map((fix: Fix) => {
               const isApplied = appliedFixes.includes(fix.fix_id);
               const isApplying = applying === fix.fix_id;
+              const verifiedHere = fix.paths_eliminated.filter(id => verifiedSet.has(id)).length;
               return (
                 <div
                   key={fix.fix_id}
@@ -106,15 +147,33 @@ export default function RemediationPanel({ data, appliedFixes, onApply, applying
                       <span className="tag tag-gray">
                         Host: {fix.target_host}
                       </span>
-                      <span title={`Implementation cost: ${fix.cost}/5`} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {costStars(fix.cost)}
+                      {/* Implementation effort is a hand-written ordinal in
+                          scope.yaml, not a measurement. It used to render as a
+                          5-star rating, which read as data. Held back until
+                          there is a real effort model. */}
+                      <span
+                        className="tag tag-gray"
+                        title="Effort is a hand-written ordinal in scope.yaml, not measured. No effort model is built yet."
+                        style={{ opacity: 0.75 }}
+                      >
+                        Effort: not modelled (WIP)
                       </span>
                     </div>
                   </div>
                   <div className="fix-action">
-                    <div className="fix-efficacy">{fix.efficacy_percentage.toFixed(0)}%</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-2)', textAlign: 'right' }}>
-                      Eliminates {fix.paths_eliminated.length} path{fix.paths_eliminated.length !== 1 ? 's' : ''}
+                    <div className="fix-efficacy">
+                      {fix.paths_eliminated.length} / {totalPaths}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-2)', textAlign: 'right', lineHeight: 1.4 }}>
+                      paths eliminated
+                      <br />
+                      {hasVerifyRun ? (
+                        <span style={{ color: verifiedHere > 0 ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+                          {verifiedHere} of {fix.paths_eliminated.length} execution-verified
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--accent-amber)' }}>predicted — not verified yet</span>
+                      )}
                     </div>
                     {isApplied ? (
                       <span className="tag tag-green" style={{ gap: 4 }}>
