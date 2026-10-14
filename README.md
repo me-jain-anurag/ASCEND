@@ -206,6 +206,8 @@ reported as **not executable, with the reason**, and any route containing it is
 ### The chokepoint engine
 
 Ranks fixes by paths eliminated per unit of effort (greedy weighted set-cover).
+Effort is a hand-written estimate in `scope.yaml`, not a measurement, so the
+dashboard does not display it — it shows *Effort: not modelled (WIP)*.
 The effect of each fix is not inferred from the graph — it is **measured**: the
 engine removes the fix from a copy of the facts, re-runs the real path-finder,
 and compares. That is the same operation the dashboard's *Apply* button performs,
@@ -249,7 +251,7 @@ never tell you.
 
 ```bash
 bash lab/down.sh && bash lab/up.sh     # build the lab
-python3 collectors/collect.py          # look at it
+.venv/bin/python collectors/collect.py # look at it (needs the venv: PyYAML)
 python3 enumerator/pathfinder.py       # find the routes
 .venv/bin/python service/main.py       # API      (own terminal)
 cd dashboard && npm run dev            # dashboard (own terminal)

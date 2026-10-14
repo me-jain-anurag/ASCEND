@@ -35,12 +35,14 @@ what it would do without touching anything.
 instead:
 
 ```bash
-sudo pacman -S --needed docker docker-compose
+sudo pacman -Syu --needed docker docker-compose
 sudo systemctl enable --now docker
 ```
 
 The `systemctl` line matters on Arch: pacman installs the service without
-starting it or enabling it at boot.
+starting it or enabling it at boot. Keep the `-yu`: installing packages with a
+bare `-S` on a system that is behind the repositories is a partial upgrade, and
+can leave Python or Node built against a newer glibc than the one installed.
 
 Then let your user reach the daemon:
 

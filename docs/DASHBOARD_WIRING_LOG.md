@@ -642,3 +642,30 @@ would have caught the fabricated DirtyPipe result, and it now also guards the
 newly-verifiable paths.
 
 23 checks in the pipeline suite, plus 19 in the verifier suite.
+
+## 31. Remediation panel — no unearned numbers
+
+Each figure on the panel was checked against where it comes from.
+
+| Was shown | Source | Now |
+|---|---|---|
+| 5-star cost rating | hand-written ordinal in `scope.yaml` (default 3 when a technique has no template) | removed; *Effort: not modelled (WIP)* tag with a tooltip saying why |
+| `67%` efficacy | `100 × eliminated / total`, measured by re-enumeration | kept as the fraction `4 / 6` — the percentage implied precision a 6-path lab cannot support |
+| nothing about verification | — | under each fix: how many of the paths it eliminates were **execution-verified** in the last Verify run |
+| `_verification_note` (sent, never rendered) | `chokepoint/engine.py` | rendered as a banner, rewritten once a Verify run exists |
+
+`App.tsx` passes `verifiedPathIds` and `hasVerifyRun` to the panel; the second
+is needed because an empty id list cannot distinguish "not run" from "ran,
+nothing verified". Against the current lab: fix-04 (patch DirtyPipe) eliminates
+3 paths, **0 of 3** verified; fix-05 (strip setuid) eliminates 3, **3 of 3**.
+
+The API is unchanged — `cost` and `efficacy_percentage` are still returned and
+still in the `Fix` interface, just not rendered — so the contract test is
+unaffected. `RemediationData` gains optional `total_enumerated_paths` and
+`_verification_note`; the panel prefers `total_enumerated_paths` because
+`total_verified_paths` actually holds the enumerated count.
+
+Known gap, not fixed here: on a page **reload** while a fix is applied,
+`fetchAll` rebuilds the applied list as `fix-01…fix-0N` from
+`applied_fixes_count`, so applying fix-03 and reloading marks fix-01 as applied.
+`GET /api/remediation` already returns the real `applied_fixes` list.

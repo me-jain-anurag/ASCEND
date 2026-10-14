@@ -4,7 +4,16 @@ A network, the privilege-escalation paths through it that ASCEND finds
 **automatically**, and the chokepoint that breaks them.
 
 Two ways to run it. The Docker path collects facts from a real lab; the offline
-path replays a recorded capture and needs nothing but Python 3.
+path replays a recorded capture and needs only Python 3 and a venv.
+
+Everything except the path-finder needs packages, so create the venv first, from
+the repo root. Don't `pip install` into the system Python — Arch and current
+Ubuntu refuse (`externally-managed-environment`).
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r service/requirements.txt -r verifier/requirements.txt
+```
 
 ---
 
@@ -15,23 +24,25 @@ Needs Docker Engine and Compose v2 — **install commands are in
 No Docker? Skip to B.
 
 ```bash
-bash lab/up.sh                     # 3 containers on two isolated networks
-python3 collectors/collect.py      # probe them -> environment_graph/facts.json
-python3 enumerator/pathfinder.py    # paths + chokepoints
+bash lab/up.sh                            # 3 containers on two isolated networks
+.venv/bin/python collectors/collect.py    # probe them -> environment_graph/facts.json
+python3 enumerator/pathfinder.py          # paths + chokepoints
 ```
 
-Then the dashboard:
+Then the dashboard, each in its own terminal:
 
 ```bash
-pip install -r service/requirements.txt -r verifier/requirements.txt
-python3 service/main.py            # FastAPI on 127.0.0.1:8000
+.venv/bin/python service/main.py          # FastAPI on 127.0.0.1:8000
 cd dashboard && npm install && npm run dev
 ```
+
+The terminal that starts the API must be able to run `docker ps` without
+`sudo`, or **Verify** returns 503 — see `demo.md` §3 and §7.
 
 Then prove the paths are real by actually running them in the lab:
 
 ```bash
-python3 -m verifier check          # canary present on all three hosts?
+.venv/bin/python -m verifier check        # canary present on all three hosts?
 ```
 
 Clicking **Verify** on the dashboard executes each step of each path in the
@@ -43,8 +54,7 @@ reset.
 ## B. Without Docker
 
 ```bash
-pip install pyyaml
-python3 collectors/collect.py --from-raw collectors/fixtures/lab_capture.json
+.venv/bin/python collectors/collect.py --from-raw collectors/fixtures/lab_capture.json
 python3 enumerator/pathfinder.py
 ```
 
@@ -56,8 +66,11 @@ The enumerator alone needs **no dependencies at all** — it reads whatever
 fallback there so `python3 enumerator/pathfinder.py` works on a fresh clone.
 
 ```bash
-python3 tests/test_pipeline.py     # 15 checks over the whole pipeline
+.venv/bin/python tests/test_pipeline.py   # 23 passed with the lab up
 ```
+
+Without the lab, expect `19 passed, 1 failed, 3 skipped`: three tests need the
+containers, and the API-contract test fails because `/api/verify` cannot run.
 
 ---
 
@@ -74,14 +87,18 @@ will be asked, and a troubleshooting table.
 | The lab | `lab/` | `web01` (entry) → `app01` → `db01` (crown jewel), two isolated networks |
 | The facts | `environment_graph/facts.json` | **generated** by the collector from the live lab |
 | What was declined | `environment_graph/collection_report.json` | conditions examined and deliberately not reported |
-| The paths | `eval/analysis.json` | 3 escalation paths, each edge tagged with its ATT&CK technique |
-| The fixes | `GET /api/remediation` | greedy weighted set-cover ranking + efficacy curve |
+| The paths | `eval/analysis.json` | 6 escalation paths, each edge tagged with its ATT&CK technique |
+| The fixes | `GET /api/remediation` | greedy weighted set-cover ranking + efficacy curve; the panel shows paths eliminated and how many of them were execution-verified |
 | The dashboard | `dashboard/` | network graph, paths, remediation panel |
 
-**Headline result:** the reused deploy key is on **3 of 3** paths, and fixing it
-alone covers every path at cost 1 — cheaper than patching DirtyPipe (cost 5),
-which also covers 3 of 3. The sudo misconfiguration only covers 2 of 3. That is
-"fewest fixes, most paths", computed rather than asserted.
+**Headline result:** the exposed deploy key is on **6 of 6** paths, so removing
+it alone breaks every route. Patching DirtyPipe breaks only 3 of 6, because
+`db01` has a second way to root; the sudo misconfiguration breaks 4 of 6. That
+is "fewest fixes, most paths", computed rather than asserted.
+
+Fix *effort* is not modelled yet. `scope.yaml` holds a hand-written cost per fix
+(1 = minutes, 5 = change control), which the ranking uses, but the dashboard
+shows *Effort: not modelled (WIP)* instead of presenting that estimate as data.
 
 ---
 
@@ -92,8 +109,9 @@ Config coverage   6/6 = 1.00   the configuration each technique needs is present
 Precision         3/6 = 0.50   routes confirmed end-to-end by EXECUTING them
 ```
 
-The verifier now exists and runs, so precision is a measured number rather than
-a placeholder — and it is 0 for a specific, stated reason.
+The verifier exists and runs, so precision is a measured number rather than a
+placeholder. (`GET /api/status` also has a `precision` field reading 100% — that
+one is **config coverage**, kept under its old name. Quote the Verify result.)
 
 **19 of the 22 individual steps across the six routes execute and succeed for
 real**: reading the exposed key, both SSH hops with it, the `sudo tar` escape,
@@ -131,9 +149,10 @@ Two things are declared, and say so on every item that uses them:
 > that a naive version check would call vulnerable. The enumeration is a
 > depth-first search over the attacker's `(host, privilege)` state space, and
 > the remediation ranking is greedy weighted set-cover where each fix's effect
-> is measured by re-running the enumerator on the patched graph. Precision is
-> zero because we have not built the execution verifier yet — that is the next
-> milestone, and we would rather show you a zero than a placeholder."
+> is measured by re-running the enumerator on the patched graph. Then we run the
+> routes: three of six are proven end to end by execution, and the other three
+> stop at a kernel exploit a container cannot run — so we report them as
+> partial, not as proven."
 
 ---
 
@@ -173,6 +192,6 @@ tests/test_pipeline.py         end-to-end regression suite
 
 ## Changing the lab
 
-Edit `lab/seed/*.sh` and `scope.yaml`, then `bash lab/up.sh && python3
-collectors/collect.py`. To change only the *rules*, edit `scope.yaml` and replay
+Edit `lab/seed/*.sh` and `scope.yaml`, then `bash lab/up.sh &&
+.venv/bin/python collectors/collect.py`. To change only the *rules*, edit `scope.yaml` and replay
 a capture with `--from-raw` — no rebuild needed.
