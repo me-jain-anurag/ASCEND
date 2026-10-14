@@ -1,4 +1,7 @@
-fastapi>=0.110.0
-uvicorn>=0.28.0
-pydantic>=2.6.0
-pyyaml>=6.0
+fastapi==0.143.1
+starlette==1.8.0
+uvicorn==0.54.0
+pydantic==2.14.1
+pyyaml==6.0.3
+# starlette's TestClient (used by the API contract tests) needs httpx
+httpx==0.28.1
