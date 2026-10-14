@@ -13,7 +13,7 @@ can run this.
 ```bash
 .venv/bin/python tests/test_pipeline.py   # 1. prove the logic  -> 23 passed
 bash lab/down.sh && bash lab/up.sh        # 2. rebuild the lab  -> ~2s cached
-python3 collectors/collect.py             # 3. go look at it    -> 4 vectors
+.venv/bin/python collectors/collect.py    # 3. go look at it    -> 4 vectors
 python3 enumerator/pathfinder.py          # 4. find the routes  -> 6 paths
 .venv/bin/python -m verifier check        # 5. lab healthy?     -> canary on 3 hosts
 .venv/bin/python service/main.py          # 6. API   :8000  (own terminal)
@@ -77,15 +77,23 @@ sudo usermod -aG docker "$USER"
 **Arch** — `get.docker.com` has no Arch support, so install from the repos:
 
 ```bash
-sudo pacman -S --needed docker docker-compose python nodejs npm
+sudo pacman -Syu --needed docker docker-compose python nodejs npm
 sudo systemctl enable --now docker
 sudo usermod -aG docker "$USER"
 ```
 
+> **Keep the `-yu`.** Installing `python nodejs npm` with plain `-S` on a system
+> that has not been fully upgraded is a *partial upgrade*: the new Python and
+> Node are built against a newer glibc than the one installed, and fail with
+> `version 'GLIBC_2.44' not found` (Python) or `libada.so.N: cannot open shared
+> object file` (Node). If you already hit that, see §7.
+
 > **Now log out of your desktop and log back in.** Linux fixes your groups at
 > login, so until you do, `docker` fails with *permission denied* — and it fails
 > per-terminal, which is maddening to debug. Confirm with `docker ps` (no
-> `sudo`). A new terminal is **not** enough; it must be a full logout.
+> `sudo`), or `id -nG | grep -w docker` — that checks the shell itself, which is
+> what any server you start from it inherits. A new terminal is **not** enough;
+> it must be a full logout.
 
 Then the project dependencies, from the repo root:
 
@@ -103,8 +111,10 @@ cd dashboard && npm run build && cd ..     # ✓ built
 ```
 
 `.venv/bin/python` is the Python that has our packages. Plain `python3` will
-fail with `ModuleNotFoundError` for anything except the path-finder, which
-deliberately needs nothing.
+fail for anything except the path-finder, which deliberately needs nothing —
+including the collector, which needs PyYAML to read `scope.yaml`. Don't
+`pip install` into the system Python to get around it: Arch and current Ubuntu
+refuse (`externally-managed-environment`), and the venv is the fix anyway.
 
 ---
 
@@ -115,7 +125,7 @@ Three terminals. Two of them stay open.
 ```bash
 # Terminal 1 — build the lab, then analyse it
 bash lab/down.sh && bash lab/up.sh     # 3 containers, ~2s once cached
-python3 collectors/collect.py          # look at them -> facts.json
+.venv/bin/python collectors/collect.py # look at them -> facts.json
 python3 enumerator/pathfinder.py       # find the routes -> 6 paths
 .venv/bin/python -m verifier check     # canary reachable on all 3?
 
@@ -214,7 +224,7 @@ machines."
 **Do:**
 
 ```bash
-python3 collectors/collect.py
+.venv/bin/python collectors/collect.py
 ```
 
 **Technically.** Nine probes run over `docker exec`, reading `/etc/passwd`,
@@ -328,11 +338,27 @@ and diffs the surviving paths against the baseline. Candidates come in two
 kinds, because they are genuinely different remediations: removing a vector, and
 revoking a reused credential everywhere it is accepted.
 
-**Say:** "Deleting one file kills all six routes, at cost 1. Patching the kernel
-costs 5 and only kills three, because db01 has a second way to root — so patching
-that CVE alone would leave half the routes open. That ranking is computed: for
-every candidate we remove it, re-run the whole path-finder, and count what's
-left."
+**What's on screen.** Each fix shows `N / 6 paths eliminated` and, under it, how
+many of *those* paths the verifier proved by execution (the dashboard runs
+Verify on load, so this is populated). The panel shows no effort rating: the
+per-fix cost in `scope.yaml` is a hand-written estimate, not a measurement, so
+it is marked *Effort: not modelled (WIP)* rather than drawn as a star rating.
+The ranking still uses that estimate internally.
+
+```
+fix-01  6 / 6   3 of 6 execution-verified   remove the exposed key on web01
+fix-03  4 / 6   2 of 4 execution-verified   remove the NOPASSWD sudo rule
+fix-04  3 / 6   0 of 3 execution-verified   patch CVE-2022-0847 on db01
+fix-05  3 / 6   3 of 3 execution-verified   strip setuid from find on db01
+```
+
+**Say:** "Deleting one file kills all six routes. Patching the kernel only kills
+three, because db01 has a second way to root — so patching that CVE alone would
+leave half the routes open. And look at the verified counts: the three routes
+the kernel patch removes are exactly the ones we could *not* execute — zero of
+three — while the setuid fix removes three routes we proved, three of three.
+Every one of these counts is computed: we remove the fix, re-run the whole
+path-finder, and count what's left."
 
 ---
 
@@ -399,6 +425,14 @@ Yes, trivially — and we deliberately removed the code that did.
 > run anything. There's a test that fails the build if exploit binaries come
 > back."
 
+**"Why does every fix say 'Effort: not modelled'?"**
+
+> "Because we don't measure effort yet. Each fix has a cost in our scope file, but
+> it's a number a person wrote down — one for 'minutes', five for 'needs change
+> control'. It used to be drawn as a star rating, which made a guess look like a
+> measurement, so we took it off the screen until there's a real model behind it.
+> Everything else on that panel is computed."
+
 **"Isn't this just BloodHound?"**
 
 See doc 01 §6. Short version: BloodHound maps Active Directory relationships.
@@ -425,13 +459,17 @@ This reasons about Linux host configuration, and verifies by execution.
 |---|---|---|
 | `permission denied ... docker.sock` | that terminal's session predates `usermod -aG docker` | log out of the desktop and back in; or `newgrp docker` in **each** terminal |
 | lab starts, but `/api/verify` returns 503 | the API terminal lacks Docker access, the lab terminal has it | same fix, applied to the API terminal — then restart the API |
+| still 503 after `newgrp docker` | the server you're talking to was started **before** `newgrp`, so it never got the group; a second start then failed with *Address already in use* and the old one kept serving | stop every API process (row below), then start it from the `newgrp` shell. Check a running server with `grep Groups /proc/<pid>/status` — the list must contain docker's GID (`getent group docker`) |
 | `docker: command not found` on Arch | `get.docker.com` does not support Arch | `sudo pacman -S --needed docker docker-compose && sudo systemctl enable --now docker` |
 | `docker compose` unknown, `docker-compose` works | Compose v1 only | install the v2 plugin (§3.2); this project needs `docker compose` |
 | `Cannot connect to the Docker daemon` | the service is not started (common on Arch) | `sudo systemctl enable --now docker` |
 | `no lab hosts found. Is the lab up?` | containers are not running | `bash lab/up.sh` |
-| `ModuleNotFoundError: uvicorn` / `docker` / `yaml` | used system `python3` instead of the venv | `.venv/bin/python ...` |
+| `ModuleNotFoundError: uvicorn` / `docker` / `yaml`, or `PyYAML is required to read scope.yaml` | used system `python3` instead of the venv | `.venv/bin/python ...` |
+| `pip install` fails with `externally-managed-environment` | installing into the system Python, which Arch and current Ubuntu forbid | use the venv: `.venv/bin/pip install ...` |
+| `python3` fails with `version 'GLIBC_2.44' not found`, or `node` with `libada.so.N: cannot open shared object file` | **Arch partial upgrade**: Python/Node were upgraded without the glibc/ada they were built against | `sudo pacman -Syu`. If you can't upgrade everything now, roll the two back from the cache: `sudo pacman -U /var/cache/pacman/pkg/{python,nodejs}-<previous-version>-*.pkg.tar.zst` |
+| that `pacman` fix itself aborts with the same Python traceback | `snap-pac` (the snapshot hook) is a Python script, so broken Python kills the transaction that would fix it | restore just `math` and `cmath` from the cached older Python package (`bsdtar -xf <pkg> usr/lib/python3.*/lib-dynload/{,c}math.*.so`, then `sudo install -m755` them into `/usr/lib/python3.*/lib-dynload/`), then rerun the `pacman` command with hooks intact |
 | `python3 -m venv` fails on Ubuntu | `python3-venv` not installed | `sudo apt-get install -y python3-venv` |
-| `Address already in use` on 8000 | an old API process still holds the port | `pgrep -af "uvicorn\|service/main.py"` then `kill <pid>` — not `ss -ltnp`, which can name a wrapper |
+| `Address already in use` on 8000 | an old API process still holds the port. **Your new server did not start** — whatever answers on :8000 is the old one, with the old one's groups | `pgrep -af 'service/mai[n].py'` then `kill <pid>` — not `ss -ltnp`, which can name a wrapper. (The `[n]` stops `pkill -f`/`pgrep -f` matching the shell running the command.) |
 | `npm: command not found` | Node not installed | Ubuntu `sudo apt-get install -y nodejs npm`; Arch `sudo pacman -S --needed nodejs npm` |
 | dashboard loads but every panel errors | the API is not running | start it (§4 step 6); the header should read **Backend Online** |
 | dashboard shows 0 paths | a fix is still applied from a rehearsal | click **Reset** |
@@ -455,7 +493,7 @@ Say so if you use it.
 
 ```bash
 bash lab/down.sh              # stop and remove the containers and networks
-pkill -f service/main.py      # stop the API
+pkill -f 'service/mai[n].py'  # stop the API
 # Ctrl-C the dashboard terminal
 ```
 
@@ -470,6 +508,10 @@ The lab keeps no state, so `down` then `up` is the complete reset.
   harvested credential between hops, and any real CVE exploit — which needs a
   genuinely vulnerable kernel, so it needs VMs rather than containers.
 - **`scorer/`** — the machine-learning exploitability model (S1-M5).
+- **An effort model for fixes.** Each fix's cost in `scope.yaml` is a
+  hand-written ordinal (1 = minutes, 5 = change control), and the set-cover
+  ranking uses it. The dashboard deliberately does not display it — it shows
+  *Effort: not modelled (WIP)* — because it is an estimate, not a measurement.
 - A single `docker compose up` that starts the analysis service and dashboard
   together.
 
