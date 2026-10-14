@@ -47,21 +47,13 @@ be **complete, self-contained, and safe to read at a glance**:
 6. Never bundle unrelated writes into one block. One intention per block.
 
 ## Attribution
-**Add a `Co-Authored-By` trailer for Claude on commits it authored.** Use:
+**Do not add any AI attribution to commits or pull requests.** Commits are authored
+solely by the human who runs them: no `Co-Authored-By` trailer, and no "generated
+with" footer on pull requests. The repository must show no AI authorship.
 
-```
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-```
+Attribution aside, the drafting rule above governs what may be run: `git add` and
+`git commit` are the only writes Claude may execute, and only when explicitly asked.
 
-as the last line of the commit message, after a blank line.
-
-This reverses an earlier project rule that forbade any AI attribution; the owner
-asked for co-authorship on 2026-09-18. Pull request descriptions likewise carry the
-standard generated-with footer when Claude wrote them.
-
-Attribution is about authorship, not permission: it does not change what Claude may
-run. The drafting rule above still governs that, and `git add` / `git commit` remain
-the only writes Claude may execute, only when explicitly asked.
 
 ## Example (what a good draft looks like)
 
