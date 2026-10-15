@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCEND — 7th Sem Plan</title>
+<style>
+  :root{
+    --dark:#1E293B;
+    --blue:#2563EB;
+    --blueTint:#EFF3FB;
+    --white:#FFFFFF;
+    --offWhite:#F8FAFC;
+    --border:#E2E8F0;
+    --text:#1E293B;
+    --muted:#64748B;
+    --ok:#1f8a54;
+    --okTint:#eafaf1;
+    --maxw:960px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);background:var(--white);line-height:1.6;font-size:17px;
+  }
+  a{color:var(--blue);text-decoration:none;}
+
+  header.site{background:var(--dark);color:var(--white);padding:46px 24px 30px;}
+  header.site .inner{max-width:var(--maxw);margin:0 auto;}
+  .eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700;margin-bottom:14px;}
+  header.site h1{margin:0 0 6px;font-size:38px;line-height:1.12;font-weight:800;letter-spacing:-.5px;}
+  header.site p.lede{font-size:18px;color:#d7d8e4;max-width:680px;margin:16px 0 0;}
+  .bluebar{height:3px;background:var(--blue);width:100%;}
+
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--border);
+    overflow-x:auto;white-space:nowrap;padding:0 12px;}
+  nav.toc .inner{max-width:var(--maxw);margin:0 auto;display:flex;gap:2px;}
+  nav.toc a{color:var(--muted);font-size:13.5px;font-weight:600;padding:13px 12px;
+    border-bottom:2px solid transparent;display:inline-block;}
+  nav.toc a:hover{color:var(--text);}
+
+  main{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  section{padding:50px 0 8px;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  .snum{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--blue);margin-bottom:8px;}
+  h2{font-size:27px;line-height:1.2;margin:0 0 16px;font-weight:800;letter-spacing:-.3px;}
+  h3{font-size:18px;margin:28px 0 10px;font-weight:700;}
+  p{margin:0 0 16px;}
+  .muted{color:var(--muted);}
+  .lead{font-size:19px;}
+
+  .key{background:var(--blueTint);border-left:3px solid var(--blue);padding:16px 20px;
+    border-radius:0 8px 8px 0;margin:22px 0;}
+  .key .lbl{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--blue);display:block;margin-bottom:4px;}
+  .note{background:var(--offWhite);border:1px solid var(--border);padding:16px 20px;
+    border-radius:8px;margin:22px 0;font-size:15.5px;}
+
+  .pipe{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:20px 0 6px;}
+  .pipe .step{background:var(--dark);color:#fff;border-radius:8px;padding:9px 13px;
+    font-size:13.5px;font-weight:600;}
+  .pipe .arrow{color:var(--muted);font-weight:700;}
+
+  ul.done{list-style:none;padding:0;margin:16px 0;}
+  ul.done li{padding:9px 0 9px 30px;position:relative;border-bottom:1px solid var(--border);font-size:16px;}
+  ul.done li:before{content:"✓";position:absolute;left:0;top:9px;color:var(--ok);font-weight:800;}
+  ul.todo{list-style:none;padding:0;margin:16px 0;counter-reset:t;}
+  ul.todo li{padding:14px 0 14px 38px;position:relative;border-bottom:1px solid var(--border);}
+  ul.todo li:before{counter-increment:t;content:counter(t);position:absolute;left:0;top:13px;
+    width:24px;height:24px;background:var(--blue);color:#fff;border-radius:50%;
+    font-size:13px;font-weight:700;text-align:center;line-height:24px;}
+  ul.todo li b{display:block;margin-bottom:3px;font-size:16.5px;}
+  ul.todo li .how{color:var(--muted);font-size:15px;}
+  ul.next{list-style:none;padding:0;margin:16px 0;}
+  ul.next li{padding:8px 0 8px 26px;position:relative;font-size:15.5px;color:var(--text);}
+  ul.next li:before{content:"→";position:absolute;left:0;top:8px;color:var(--blue);font-weight:800;}
+
+  footer{background:var(--offWhite);color:var(--muted);font-size:13.5px;
+    padding:28px 24px;text-align:center;border-top:1px solid var(--border);}
+  @media (max-width:560px){
+    header.site h1{font-size:30px;}
+    body{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="inner">
+    <div class="eyebrow">ASCEND · DSCE ISE · Final Year</div>
+    <h1>7th Semester Plan</h1>
+    <p class="lede">What we are committing to this semester, what is already built, what is left to
+    finish, and a quick look at what 8th semester holds.</p>
+  </div>
+</header>
+<div class="bluebar"></div>
+
+<nav class="toc"><div class="inner">
+  <a href="#system">The system</a>
+  <a href="#scope">7th-sem scope</a>
+  <a href="#done">Done</a>
+  <a href="#remaining">Remaining</a>
+  <a href="#eighth">8th sem</a>
+</div></nav>
+
+<main>
+
+<section id="system">
+  <span class="snum">In one line</span>
+  <h2>What ASCEND does</h2>
+  <p class="lead">ASCEND looks at a small network, finds every way a hacker could climb from a
+  low-access foothold up to the most important machine, <strong>actually runs each way to prove it
+  really works</strong>, then works out the fewest fixes that block the most routes — and proves the
+  fixes worked.</p>
+  <div class="pipe">
+    <span class="step">Scan the machines</span><span class="arrow">→</span>
+    <span class="step">List every break-in route</span><span class="arrow">→</span>
+    <span class="step">Run each route to confirm it</span><span class="arrow">→</span>
+    <span class="step">Pick the cheapest fixes</span><span class="arrow">→</span>
+    <span class="step">Prove the routes are gone</span>
+  </div>
+  <p class="muted">The test network is 3 machines: <strong>web01</strong> (entry, low access) →
+  <strong>app01</strong> (middle) → <strong>db01</strong> (the "crown jewel" database). That last
+  step — proving routes vanish after a fix — is the headline result of the whole project.</p>
+</section>
+
+<section id="scope">
+  <span class="snum">Section 1</span>
+  <h2>What is in scope for 7th semester</h2>
+  <p>7th sem is about having <strong>one complete, working system that proves itself</strong> on the
+  3-machine Docker lab — with real numbers and the before/after fix proof — written up and shown on
+  the dashboard for the review.</p>
+  <div class="key">
+    <span class="lbl">The commitment</span>
+    Make the full loop run end-to-end on the current 3-host lab, produce honest results, prove that
+    the recommended fix removes the attack routes, and present it. <strong>Nothing bigger.</strong>
+  </div>
+  <h3>Deliberately NOT in 7th sem</h3>
+  <p class="muted">The bigger 10-machine network, real virtual machines, a live kernel exploit, the
+  AI prediction model, and the large dataset — all of that is 8th sem on purpose, so this semester
+  stands on its own as a finished, demoable result.</p>
+</section>
+
+<section id="done">
+  <span class="snum">Section 2</span>
+  <h2>What is already built (done)</h2>
+  <p>The hard engineering is finished — the whole machine exists and the pieces work:</p>
+  <ul class="done">
+    <li><strong>The practice network</strong> — a safe 3-machine Docker lab (web01 → app01 → db01) that rebuilds and resets in seconds.</li>
+    <li><strong>The scanners</strong> — read-only probes that look at each machine and record its weaknesses.</li>
+    <li><strong>The route finder</strong> — lists every break-in path from the entry point to the database (currently finds 6 routes).</li>
+    <li><strong>The prover (verifier)</strong> — actually runs each route and confirms it worked using a hidden "canary" check, not just a guess.</li>
+    <li><strong>The fix engine (chokepoint)</strong> — works out the smallest, cheapest set of fixes that blocks the most routes.</li>
+    <li><strong>The dashboard</strong> — a screen (FastAPI + React) to see the network, the routes, and the results.</li>
+    <li><strong>42 automated tests</strong> — checks that keep the code honest.</li>
+  </ul>
+  <div class="note"><strong>Where we actually stand today:</strong> 4 weaknesses found → 6 routes to
+  the database → 3 confirmed real by execution (and 3 partial). The fix engine already ranks fixes:
+  removing the exposed SSH key blocks all 6 routes, the sudo rule blocks 4, and so on. The one part
+  that does <em>not</em> exist yet is the AI scorer — that is 8th-sem work.</div>
+</section>
+
+<section id="remaining">
+  <span class="snum">Section 3</span>
+  <h2>What is left to finish 7th sem</h2>
+  <p>Almost everything that remains is <strong>running the system, capturing the numbers, and writing
+  it up</strong> — not building new features. In more detail:</p>
+  <ul class="todo">
+    <li><b>Run it for real, once, cleanly — and save the results.</b>
+      <span class="how">Reset the lab to a clean state, run the whole pipeline (scan → find routes →
+      prove each one), and let it write the results file (<code>outcomes.jsonl</code>). That file is
+      empty today, so right now we have <em>no</em> saved, citable numbers. One clean run gives us our
+      real headline: "6 routes found, 3 proven real." Then run it a second time and check we get the
+      same answer — a number a reviewer can trust is one that repeats.</span></li>
+    <li><b>Prove the fix works — the before/after loop.</b>
+      <span class="how">Count the routes to the database (6). Apply the single fix the engine
+      recommends (remove the exposed SSH key). Re-run. Show those routes are now gone (6 → 0). Then
+      add two honesty checks: a "negative control" (apply a fix that <em>shouldn't</em> matter and show
+      routes don't drop) and an "order" check (our cheapest-fix order vs the obvious severity order).
+      Wrap it so one command does the whole before→fix→after, live.</span></li>
+    <li><b>Settle one naming choice.</b>
+      <span class="how">Decide how we label the "reused credential" technique — <code>T1550</code> or
+      <code>T1078.003</code> — and make the code (<code>scope.yaml</code>), the PDF, and the report all
+      say the same thing. This is the only inconsistency left in the project, and it's a 10-minute
+      decision once we pick one.</span></li>
+    <li><b>Turn the results into simple charts and tables.</b>
+      <span class="how">From that one saved run, make four small pictures: routes found vs proven
+      (6 vs 3), before vs after the fix (6 → 0), which fix blocks how many routes (exposed key 6/6,
+      sudo 4/6, …), and our fix-order vs the obvious order. Also a speed number (how fast it finds the
+      routes). Each one should be generated from the run, not drawn by hand, so it always matches.</span></li>
+    <li><b>Show it and write it up.</b>
+      <span class="how">Make the dashboard clearly show the network, the proven routes, and the
+      before/after. Take clean screenshots as a backup. Then write a short review report: what ASCEND
+      is, what we built, the results with the charts, the proof that the fix works, and a short note on
+      what 8th sem will add. Make sure the report, the dashboard and the run all tell the same
+      story.</span></li>
+  </ul>
+  <p class="muted">In short: the system is built — 7th sem is about <strong>running it, proving it,
+  and presenting it honestly.</strong></p>
+</section>
+
+<section id="eighth">
+  <span class="snum">Section 4</span>
+  <h2>8th semester — high level (the bigger, research half)</h2>
+  <p>This is the substantial, harder work we deliberately leave for next semester. High level only:</p>
+  <ul class="next">
+    <li><strong>Grow the lab</strong> from 3 containers to about 10 machines, including 2 real virtual machines.</li>
+    <li><strong>Run a real kernel exploit</strong> (DirtyPipe) on a virtual machine — something containers cannot do today.</li>
+    <li><strong>Build a big labelled dataset</strong> — 30+ automatically generated lab variants to learn from.</li>
+    <li><strong>Build the AI "exploitability scorer"</strong> — predicts whether a route would work <em>without</em> running it, and must beat simple baselines or be reported honestly.</li>
+    <li><strong>Assessment mode</strong> (stretch) — point it at a real machine, read-only, and get ranked fixes.</li>
+    <li><strong>Write the research paper.</strong></li>
+  </ul>
+  <div class="key"><span class="lbl">Why this split is defensible</span>
+    7th sem is a complete method proven on a controlled lab — it reviews cleanly on its own even if
+    8th never happened. 8th is the risky, novel half (real exploitation, a real dataset, an AI model
+    that might not win) — exactly the kind of substantial work a final-year second semester and a
+    paper are meant to carry.</div>
+</section>
+
+</main>
+
+<footer>
+  ASCEND — Attack-path Scoring and Chokepoint Evaluation for Network Defence · 7th-sem plan · prepared 15 Oct 2026 · the 10-day work split lives in the separate tracker doc
+</footer>
+
+</body>
+</html>
