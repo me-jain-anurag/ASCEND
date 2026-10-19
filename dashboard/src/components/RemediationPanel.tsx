@@ -92,20 +92,20 @@ export default function RemediationPanel({
             <AreaChart data={data.efficacy_curve} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#B5584B" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#B5584B" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#4F9E7C" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#4F9E7C" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="fixes_applied" label={{ value: 'Fixes Applied', position: 'insideBottom', offset: -2, fontSize: 10 }} />
               <YAxis />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="paths_remaining" stroke="#f43f5e" fill="url(#redGrad)" name="Paths remaining" strokeWidth={2} />
-              <Area type="monotone" dataKey="paths_eliminated" stroke="#10b981" fill="url(#greenGrad)" name="Paths eliminated" strokeWidth={2} />
+              <Area type="monotone" dataKey="paths_remaining" stroke="#B5584B" fill="url(#redGrad)" name="Paths remaining" strokeWidth={2} />
+              <Area type="monotone" dataKey="paths_eliminated" stroke="#4F9E7C" fill="url(#greenGrad)" name="Paths eliminated" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -114,7 +114,7 @@ export default function RemediationPanel({
       {/* Fix list */}
       <div className="card">
         <div className="card-header">
-          <CheckCircle size={16} color="var(--accent-cyan)" />
+          <CheckCircle size={16} color="var(--accent-verified)" />
           <h2>Ranked Chokepoint Fixes</h2>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-2)' }}>
             {appliedFixes.length} / {data.ranked_fixes.length} applied
@@ -137,7 +137,7 @@ export default function RemediationPanel({
                     <div className="fix-title">
                       {fix.title}
                       {fix.is_recommended_chokepoint && (
-                        <span className="tag tag-cyan" style={{ marginLeft: 8 }}>⭐ Chokepoint</span>
+                        <span className="tag tag-amber" style={{ marginLeft: 8 }}>⭐ Chokepoint</span>
                       )}
                     </div>
                     <div className="fix-description">{fix.description}</div>

@@ -6,17 +6,29 @@ interface Props {
   network: NetworkData;
   activePath?: AttackPath | null;
   verifiedPathIds?: string[];
+  partialPathIds?: string[];
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  web:      '#3b82f6',
-  app:      '#8b5cf6',
-  db:       '#f43f5e',
-  database: '#f43f5e',  // alias: facts.json uses "database"; contract uses "db"
-  'jump host': '#f59e0b',
+/**
+ * Fixed left-to-right positions along the attack direction.
+ * web01 → app01 → db01: entry → pivot → crown jewel.
+ * The physical story should be immediately legible without reading labels.
+ */
+const HOST_ORDER: Record<string, number> = {
+  web01: 0,
+  app01: 1,
+  db01:  2,
 };
 
-export default function NetworkGraph({ network, activePath, verifiedPathIds }: Props) {
+const ROLE_LABELS: Record<string, string> = {
+  web:      'Web Server',
+  app:      'App Server',
+  db:       'Database',
+  database: 'Database',
+  'jump host': 'Jump Host',
+};
+
+export default function NetworkGraph({ network, activePath, verifiedPathIds, partialPathIds }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
 
@@ -28,10 +40,11 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
         id: h.hostname,
         label: h.hostname,
         role: h.role,
+        roleLabel: ROLE_LABELS[h.role] ?? h.role,
         isEntry: h.is_entry_point,
         isCrown: h.is_crown_jewel,
-        color: ROLE_COLORS[h.role] ?? '#64748b',
         vectors: h.vectors.length,
+        nodeLabel: `${h.hostname}\n${ROLE_LABELS[h.role] ?? h.role}\n${h.vectors.length} vector${h.vectors.length !== 1 ? 's' : ''}`,
       },
     }));
 
@@ -40,6 +53,8 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
         id: `edge-${i}`,
         source: r.from_host,
         target: r.to_host,
+        service: `${r.service}:${r.port}`,
+        defaultLabel: `${r.service}:${r.port}`,
         label: `${r.service}:${r.port}`,
       },
     }));
@@ -48,95 +63,121 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
       container: containerRef.current,
       elements: { nodes, edges },
       style: [
+        // ── Default node: flat card-like appearance ──
         {
           selector: 'node',
           style: {
-            'width': 60, 'height': 60,
-            'background-color': 'data(color)',
-            'background-opacity': 0.2,
-            'border-width': 2,
-            'border-color': 'data(color)',
-            'label': 'data(label)',
-            'color': '#f1f5f9',
+            'shape': 'round-rectangle',
+            'width': 120, 'height': 70,
+            'background-color': '#1A1C23',
+            'background-opacity': 1,
+            'border-width': 1.5,
+            'border-color': '#2A2D36',
+            'label': 'data(nodeLabel)',
+            'color': '#E7E8EC',
             'font-size': 10,
-            'font-family': 'Inter, sans-serif',
-            'font-weight': 600,
-            'text-valign': 'bottom',
-            'text-margin-y': 6,
+            'font-family': 'IBM Plex Sans, sans-serif',
+            'font-weight': 500,
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'text-wrap': 'wrap',
+            'text-max-width': '110px',
             'text-outline-width': 0,
           },
         },
+        // ── Entry point ──
         {
           selector: 'node[?isEntry]',
           style: {
-            'border-color': '#00d4ff',
-            'background-color': '#00d4ff',
-            'background-opacity': 0.18,
-            'border-width': 2.5,
-            // Cytoscape has no 'box-shadow'; overlay is its glow equivalent.
-            'overlay-color': '#00d4ff',
-            'overlay-opacity': 0.18,
-            'overlay-padding': 6,
+            'border-color': '#C9A34E',
+            'border-width': 2,
           },
         },
+        // ── Crown jewel ──
         {
           selector: 'node[?isCrown]',
           style: {
-            'border-color': '#f43f5e',
-            'background-color': '#f43f5e',
-            'background-opacity': 0.18,
-            'border-width': 2.5,
+            'border-color': '#B5584B',
+            'border-width': 2,
           },
         },
+        // ── Default edge: muted, dashed (unverified) ──
         {
           selector: 'edge',
           style: {
             'width': 1.5,
-            'line-color': 'rgba(255,255,255,0.1)',
-            'target-arrow-color': 'rgba(255,255,255,0.15)',
+            'line-color': '#3A3D48',
+            'target-arrow-color': '#3A3D48',
             'target-arrow-shape': 'triangle',
+            'arrow-scale': 0.8,
             'curve-style': 'bezier',
+            'line-style': 'dashed',
+            'line-dash-pattern': [6, 4],
             'label': 'data(label)',
             'font-size': 9,
-            'color': '#64748b',
-            'font-family': 'JetBrains Mono, monospace',
-            'text-background-color': '#0a0d14',
-            'text-background-opacity': 0.8,
+            'color': '#5F6270',
+            'font-family': 'IBM Plex Mono, monospace',
+            'text-background-color': '#13151A',
+            'text-background-opacity': 0.9,
             'text-background-padding': '2px',
           },
         },
+        // ── Active path edge highlight ──
         {
           selector: '.path-edge',
           style: {
-            'line-color': '#00d4ff',
-            'target-arrow-color': '#00d4ff',
-            'width': 3,
-            'line-style': 'solid',
+            'line-color': '#C9A34E',
+            'target-arrow-color': '#C9A34E',
+            'width': 2.5,
+            'line-style': 'dashed',
+            'line-dash-pattern': [6, 4],
             'opacity': 1,
           },
         },
+        // ── Active path node highlight ──
         {
           selector: '.path-node',
           style: {
-            'border-color': '#00d4ff',
-            'border-width': 3,
-            'background-opacity': 0.35,
+            'border-color': '#C9A34E',
+            'border-width': 2.5,
           },
         },
+        // ── Verified edge: solid, green ──
         {
           selector: '.verified-edge',
           style: {
-            'line-color': '#10b981',
-            'target-arrow-color': '#10b981',
+            'line-color': '#4F9E7C',
+            'target-arrow-color': '#4F9E7C',
+            'line-style': 'solid',
+            'width': 2.5,
+          },
+        },
+        // ── Partial edge: dotted, amber ──
+        {
+          selector: '.partial-edge',
+          style: {
+            'line-color': '#C9A34E',
+            'target-arrow-color': '#C9A34E',
+            'line-style': 'dotted',
+            'line-dash-pattern': [2, 4],
+            'width': 2,
           },
         },
       ],
+      // ── Preset layout: fixed left-to-right positions ──
       layout: {
-        name: 'breadthfirst',
-        directed: true,
+        name: 'preset',
+        positions: (node: any) => {
+          const hostname = node.data('id');
+          const order = HOST_ORDER[hostname] ?? 0;
+          const containerW = containerRef.current?.clientWidth ?? 600;
+          const containerH = containerRef.current?.clientHeight ?? 400;
+          const usableW = containerW - 200;
+          const x = 100 + order * (usableW / 2);
+          const y = containerH / 2 - 20; // leave room for legend at bottom
+          return { x, y };
+        },
         padding: 40,
-        spacingFactor: 1.4,
-        avoidOverlap: true,
       },
       userZoomingEnabled: true,
       userPanningEnabled: true,
@@ -152,7 +193,10 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
     const cy = cyRef.current;
     if (!cy) return;
 
-    cy.elements().removeClass('path-edge path-node verified-edge');
+    cy.elements().removeClass('path-edge path-node verified-edge partial-edge');
+    cy.edges().forEach(e => {
+      e.data('label', e.data('defaultLabel'));
+    });
 
     if (!activePath) return;
 
@@ -164,6 +208,9 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
 
     pathNodeIds.forEach(id => cy.$(`#${id}`).addClass('path-node'));
 
+    const isVerified = verifiedPathIds?.includes(activePath.path_id);
+    const isPartial = partialPathIds?.includes(activePath.path_id);
+
     activePath.steps.forEach(step => {
       if (step.source_host !== step.target_host) {
         const edge = cy.edges().filter(
@@ -171,41 +218,42 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds }: P
         );
         if (edge.length) {
           edge.addClass('path-edge');
-          if (verifiedPathIds?.includes(activePath.path_id)) {
+          const tech = step.vector.technique;
+          const svc = edge.data('service');
+          edge.data('label', tech ? `${tech} (${svc})` : svc);
+          if (isVerified) {
             edge.addClass('verified-edge');
+          } else if (isPartial) {
+            edge.addClass('partial-edge');
           }
         }
       }
     });
-  }, [activePath, verifiedPathIds]);
+  }, [activePath, verifiedPathIds, partialPathIds]);
 
   return (
     <div style={{ position: 'relative' }}>
       <div ref={containerRef} className="cyto-container" />
       <div className="cyto-legend">
         <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#00d4ff' }} />
+          <div className="legend-dot" style={{ background: '#C9A34E', borderRadius: 2 }} />
           Entry Point
         </div>
         <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#f43f5e' }} />
+          <div className="legend-dot" style={{ background: '#B5584B', borderRadius: 2 }} />
           Crown Jewel
         </div>
-        <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#3b82f6' }} />
-          Web
+        <div className="legend-item" style={{ gap: 6 }}>
+          <div className="legend-line" style={{ color: '#4F9E7C' }} />
+          Verified (solid)
         </div>
-        <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#8b5cf6' }} />
-          App
+        <div className="legend-item" style={{ gap: 6 }}>
+          <div className="legend-line dotted" style={{ color: '#C9A34E' }} />
+          Partial (dotted)
         </div>
-        <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#00d4ff', opacity: 0.7 }} />
-          Attack Path
-        </div>
-        <div className="legend-item">
-          <div className="legend-dot" style={{ background: '#10b981' }} />
-          Verified
+        <div className="legend-item" style={{ gap: 6 }}>
+          <div className="legend-line dashed" style={{ color: '#3A3D48' }} />
+          Unverified (dashed)
         </div>
       </div>
     </div>

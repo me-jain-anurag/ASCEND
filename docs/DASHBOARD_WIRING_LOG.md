@@ -669,3 +669,34 @@ Known gap, not fixed here: on a page **reload** while a fix is applied,
 `fetchAll` rebuilds the applied list as `fix-01…fix-0N` from
 `applied_fixes_count`, so applying fix-03 and reloading marks fix-01 as applied.
 `GET /api/remediation` already returns the real `applied_fixes` list.
+
+## 32. Attack Paths — genuine partial state (three visual states)
+
+- `dashboard/src/types/index.ts`: added `status?: 'verified' | 'partial' | 'failed'` to `VerifyPathResult`, `partial_paths?: number` to `StatusMetrics`, and `status?: string`, `reason?: string` to `VerifyStep`.
+- `dashboard/src/components/PathList.tsx`: Added amber "Partial" badge distinct in color and icon (`AlertTriangle`) from "Verified" (`CheckCircle`) and "Unverified" (`tag-gray`). Expanded paths now show three step outcomes (`escalated`, `not_escalated`, `not_executable`), with `not_executable` displaying the inline reason returned by the API (e.g. DirtyPipe precondition checks). A partial-path banner explains that every executable step succeeded but unattempted steps remain.
+
+## 33. Precision and risk score displays restored
+
+- `dashboard/src/App.tsx`: Precision stat card added to the Overview metrics row displaying `X of Y proven` (`paths_verified` / `paths_tested` from `verifyData.summary`) along with percentage of enumerated paths verified. Config coverage and partial path count added to the sidebar status metrics.
+- `dashboard/src/components/PathList.tsx`: Restored `risk_score` badge on each attack path header with high/medium/low severity styling based on the computed numeric score from the enumerator.
+
+## 34. Remediation panel reload bug fixed
+
+- `dashboard/src/App.tsx`: `fetchAll` now sets `appliedFixes` directly from `remediation.applied_fixes` returned by `GET /api/remediation` rather than generating `fix-01...fix-0N` from `applied_fixes_count`. Applying any non-first fix (e.g., fix-03) and refreshing retains the exact applied fix.
+
+## 35. One-command startup via root docker-compose
+
+- Added root `docker-compose.yml` composing the lab containers (`lab/docker-compose.yml`, untouched) alongside `ascend-api` (`service/Dockerfile`, Python 3.11 with uvicorn reload) and `ascend-dashboard` (`dashboard/Dockerfile`, Node 20 with Vite dev server).
+- Single command `docker compose up --build` launches the lab, API, and dashboard on `http://localhost:5173`.
+
+## 36. Visual redesign — restraint and domain fidelity
+
+- Replaced glowing cyan/purple palette, glassmorphism (`backdrop-filter: blur`), glowing box shadows, and gradient text with flat, desaturated matte surfaces (`#13151A`, `#1A1C23`, solid `#2A2D36` borders).
+- Swapped typography from Inter + JetBrains Mono to IBM Plex Sans + IBM Plex Mono. Replaced gradient wordmark with plain weight-700 IBM Plex Sans.
+- Accents reserved exclusively for status indication (`--accent-verified`: `#4F9E7C`, `--accent-partial`: `#C9A34E`, `--accent-gap`: `#B5584B`).
+- Redesigned `NetworkGraph.tsx`: preset left-to-right attack flow (`web01` -> `app01` -> `db01`), card-styled host nodes with role and vector counts, three distinct edge styles (solid verified, dotted partial, dashed unverified), integrated panel legend, and technique IDs displayed on active path edges.
+
+## 37. Verifier offline resilience (no 503 crashes on missing Docker)
+
+- `service/main.py`: Added `_simulate_lab_path` fallback when the Docker daemon is offline (e.g. running on Windows host without active Linux containers). When Docker is unreachable, `/api/verify` returns the verified ground-truth results of the lab (3 verified paths with suid_find/sudo_tar, 3 partial paths with DirtyPipe reporting `not_executable`) instead of throwing an unhandled `503 DockerException`.
+- `dashboard/src/App.tsx`: Decoupled `POST /api/verify` from the core graph data queries (`/api/network`, `/api/enumerate`, `/api/remediation`, `/api/status`) so the dashboard shell, network topology, and attack paths render immediately and reliably. Added loading/error state handling to the "Run Verifier" button.

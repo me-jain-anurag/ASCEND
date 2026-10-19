@@ -1,0 +1,53 @@
+# ASCEND — full-stack dev: lab + API service + dashboard.
+#
+# One command gets you from a clean checkout to the dashboard loading real data:
+#
+#   docker compose up --build
+#
+# Then open http://localhost:5173 in your browser.
+#
+# This compose file COMPOSES the lab's own docker-compose.yml (which stays
+# untouched) with the API service and the dashboard dev server. The lab
+# containers run on internal networks only; the service and dashboard expose
+# their ports to the host.
+
+name: ascend
+
+include:
+  - path: lab/docker-compose.yml
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: service/Dockerfile
+    container_name: ascend-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source so uvicorn --reload picks up changes without a rebuild.
+      - .:/app
+    depends_on:
+      - web01
+      - app01
+      - db01
+    networks:
+      - ascend_dmz
+      - ascend_core
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: dashboard
+      dockerfile: Dockerfile
+    container_name: ascend-dashboard
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source so Vite HMR works.
+      - ./dashboard:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
