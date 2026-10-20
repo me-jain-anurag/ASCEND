@@ -213,8 +213,41 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
     result = []
     id_map = id_map or {}
 
+    # Crown-jewel asset value scales a path's impact (how much the target is
+    # worth). Normalised to 0–1; a missing value falls back to a mid weight.
+    _crown_host = facts.get("crown_jewel", {}).get("host")
+    _crown_asset = next(
+        (h.get("asset_value", 50) for h in facts.get("hosts", [])
+         if h.get("hostname") == _crown_host),
+        50,
+    )
+    asset_weight = 0.5 + 0.5 * (min(_crown_asset, 100) / 100.0)
+
+    # Risk is filled in a second pass below: the directness penalty is relative
+    # to the shortest path in THIS graph, which is only known once all built.
+    risk_inputs: list[tuple] = []
+
     for path_idx, raw_path in enumerate(raw_paths, 1):
         path_id = id_map.get(_path_signature(raw_path), f"path-{path_idx:02d}")
+        # Severity + confidence are read from every vector the path uses —
+        # including the credential-harvest vector that gets collapsed into a
+        # hop below, so it still counts toward the path's severity.
+        _path_vecs = [
+            vector_map[rs["vector_id"]]
+            for rs in raw_path
+            if rs.get("vector_id") and rs.get("vector_id") in vector_map
+        ]
+        _cvsses = [v.get("cvss", 0.0) for v in _path_vecs if v.get("cvss")]
+        severity = max(_cvsses) if _cvsses else 0.0
+        # A vector derived from a DECLARED fact (e.g. a kernel version a shared
+        # container cannot actually run) is not execution-observed, so a path
+        # that leans on one is less certain. This mirrors the project's
+        # observed-over-declared stance instead of scoring them identically.
+        declared = any(
+            (v.get("features", {}) or {}).get("provenance") == "declared"
+            for v in _path_vecs
+        )
+        confidence = 0.85 if declared else 1.0
         # ── Collapse cred-harvest steps into their adjacent lateral step ─────
         # Pass 1: collect pending credentials keyed to the next host-to-host step
         pending_cred: dict | None = None
@@ -278,7 +311,6 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
 
         # ── Build PathStep list ───────────────────────────────────────────────
         steps = []
-        cvss_values = []
         for step_idx, s in enumerate(host_steps, 1):
             vec = {
                 "vector_id":          s["vector_id"],
@@ -289,9 +321,6 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
                 "features":           s["vec_meta"].get("features", {}),
                 "verified_exploitable": s["vec_meta"].get("verified_exploitable", None),
             }
-            if vec["cvss"]:
-                cvss_values.append(vec["cvss"])
-
             steps.append({
                 "step_number":    step_idx,
                 "source_host":    s["src_host"],
@@ -310,9 +339,8 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
         entry = facts["entry"]
         crown = facts["crown_jewel"]
         techniques = [st["vector"]["technique"] for st in steps]
-        risk = round(max(cvss_values), 1) if cvss_values else 0.0
 
-        result.append({
+        path_obj = {
             "path_id":         path_id,
             # Numbered from the path's BASELINE id, not its position in this
             # response — otherwise the survivor of a fix is relabelled "Path 1"
@@ -323,9 +351,36 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
             "entry_host":      entry["host"],
             "crown_jewel_host": crown["host"],
             "overall_verified": None,
-            "risk_score":      risk,
+            "risk_score":      0.0,   # filled by the second pass below
             "steps":           steps,
-        })
+        }
+        result.append(path_obj)
+        risk_inputs.append((path_obj, severity, confidence, len(steps)))
+
+    # ── Second pass: directness-adjusted risk, now that all lengths are known ──
+    # risk = severity × asset_weight × confidence − length_penalty, clamped 0–10.
+    # It is a HEURISTIC prioritisation aid, not ground truth — execution (the
+    # verifier) is the project's real signal. The breakdown rides along so the
+    # dashboard can show exactly how each figure was reached.
+    min_len = min((ln for _, _, _, ln in risk_inputs), default=1)
+    for path_obj, severity, confidence, length in risk_inputs:
+        length_penalty = round(0.4 * (length - min_len), 2)
+        raw = severity * asset_weight * confidence - length_penalty
+        path_obj["risk_score"] = round(max(0.0, min(10.0, raw)), 1)
+        path_obj["risk_factors"] = {
+            "severity":       round(severity, 1),
+            "asset_weight":   round(asset_weight, 2),
+            "confidence":     confidence,
+            "length_penalty": length_penalty,
+            "formula": "severity × asset_weight × confidence − length_penalty (0–10)",
+            "notes": (
+                "severity = highest CVSS of any vector in the path; "
+                "asset_weight scales by the crown jewel's asset value; "
+                "confidence = 0.85 when the path relies on a declared "
+                "(not execution-observed) fact, else 1.0; "
+                "length_penalty favours shorter, more direct paths."
+            ),
+        }
 
     return result
 
@@ -874,6 +929,76 @@ def get_status():
             "collected_at": facts.get("_meta", {}).get("collected_at"),
             "verifier":     "live — execution verifier (isolated Docker lab)" if state.get("last_verification") else "ready",
         },
+    }
+
+
+def _load_pack() -> dict:
+    """Load the restricted knowledge pack (ATT&CK / CWE / CAPEC / CVE)."""
+    try:
+        with open(_ROOT / "knowledge_graph" / "pack.json") as fh:
+            return json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return {"techniques": {}, "cves": {}}
+
+
+@app.get("/api/knowledge")
+def get_knowledge():
+    """The techniques and CVEs this project demonstrates, in plain language.
+
+    Reference data (MITRE ATT&CK / NVD) from knowledge_graph/pack.json, so the
+    dashboard can explain *what* each technique and CVE is rather than only
+    printing an identifier. Each item is flagged with whether it is present in
+    the currently loaded lab, which is derived from the live facts + the
+    enumerated paths, not hand-maintained.
+    """
+    pack = _load_pack()
+    facts = _load_facts()
+
+    # Which technique ids are actually exercised by the current graph?
+    present: set[str] = {v.get("technique") for v in facts.get("vectors", []) if v.get("technique")}
+    for raw_path in _enumerate_paths(_effective_facts(facts, _load_scope())):
+        for step in raw_path:
+            tech = step.get("technique")
+            if tech:
+                # A combined id like "T1021.004+T1550" marks both parts present.
+                for part in tech.split("+"):
+                    present.add(part.strip())
+    present_cves = {v.get("cve") for v in facts.get("vectors", []) if v.get("cve")}
+
+    techniques = []
+    for tid, t in pack.get("techniques", {}).items():
+        if "+" in tid:
+            continue  # synthetic combined entry; its parts are listed individually
+        techniques.append({
+            "attack_id":   t.get("attack_id", tid),
+            "name":        t.get("name", tid),
+            "tactic":      t.get("tactic", ""),
+            "description": t.get("description_text", ""),
+            "cwe":         t.get("cwe", []),
+            "capec":       t.get("capec", []),
+            "present_in_lab": t.get("attack_id", tid) in present,
+        })
+    techniques.sort(key=lambda x: (not x["present_in_lab"], x["attack_id"]))
+
+    cves = []
+    for cid, c in pack.get("cves", {}).items():
+        cves.append({
+            "cve_id":      c.get("cve_id", cid),
+            "name":        c.get("name", ""),
+            "base_cvss":   c.get("base_cvss"),
+            "cvss_vector": c.get("cvss_vector", ""),
+            "attack_id":   c.get("attack_id", ""),
+            "affected":    c.get("affected", ""),
+            "description": c.get("description", ""),
+            "present_in_lab": c.get("cve_id", cid) in present_cves,
+        })
+    cves.sort(key=lambda x: (not x["present_in_lab"], x["cve_id"]))
+
+    return {
+        "source":   pack.get("_source", ""),
+        "techniques": techniques,
+        "cves":       cves,
+        "demonstrated_count": sum(1 for t in techniques if t["present_in_lab"]),
     }
 
 
