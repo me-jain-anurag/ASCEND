@@ -271,8 +271,16 @@ def build_remediation(facts: dict, scope: dict | None = None) -> dict:
         remaining.remove(best)
 
     # ── Rank: the cover first (in selection order), then the rest by effect ──
+    # When two fixes eliminate the SAME number of paths, prefer the cheaper one
+    # (then a stable name tie-break). Without the cost term a costlier fix could
+    # outrank an equally effective but cheaper one purely on alphabetical order.
+    def _cost(c: dict) -> int:
+        return (scope.get("remediation", {})
+                     .get(c["technique"], {})
+                     .get("cost", 3)) or 1
+
     ordered = chosen + sorted(
-        remaining, key=lambda c: (-len(solo[c["key"]]), c["key"])
+        remaining, key=lambda c: (-len(solo[c["key"]]), _cost(c), c["key"])
     )
 
     ranked_fixes = [
