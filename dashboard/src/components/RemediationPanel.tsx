@@ -2,9 +2,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { CheckCircle, AlertTriangle, Zap } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Zap, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { RemediationData, Fix } from '../types';
+import InfoTooltip from './InfoTooltip';
 
 interface Props {
   data: RemediationData;
@@ -82,7 +83,13 @@ export default function RemediationPanel({
       <div className="card">
         <div className="card-header">
           <Zap size={16} color="var(--accent-amber)" />
-          <h2>Fixes-vs-Paths Efficacy Curve</h2>
+          <h2>Fixes-vs-paths efficacy curve</h2>
+          <InfoTooltip title="How this is measured">
+            Each point applies the top-N ranked fixes to a copy of the facts and
+            re-runs the path-finder. &ldquo;Paths remaining&rdquo; is the number
+            of attack paths that still enumerate after those fixes — measured by
+            re-enumeration, not by filtering a list.
+          </InfoTooltip>
           <span className="tag tag-gray" style={{ marginLeft: 'auto', fontSize: 10 }}>
             {hasVerifyRun ? 'predicted · verify run complete' : 'predicted'}
           </span>
@@ -90,22 +97,13 @@ export default function RemediationPanel({
         <div className="card-body">
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={data.efficacy_curve} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="redGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#B5584B" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#B5584B" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4F9E7C" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#4F9E7C" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="fixes_applied" label={{ value: 'Fixes Applied', position: 'insideBottom', offset: -2, fontSize: 10 }} />
-              <YAxis />
+              <CartesianGrid stroke="#2A2D36" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="fixes_applied" stroke="#5F6270" tick={{ fontSize: 11 }}
+                     label={{ value: 'Fixes applied', position: 'insideBottom', offset: -2, fontSize: 10, fill: '#5F6270' }} />
+              <YAxis stroke="#5F6270" tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="paths_remaining" stroke="#B5584B" fill="url(#redGrad)" name="Paths remaining" strokeWidth={2} />
-              <Area type="monotone" dataKey="paths_eliminated" stroke="#4F9E7C" fill="url(#greenGrad)" name="Paths eliminated" strokeWidth={2} />
+              <Area type="stepAfter" dataKey="paths_remaining" stroke="#B5584B" fill="#B5584B" fillOpacity={0.1} name="Paths remaining" strokeWidth={1.5} dot={{ r: 2, fill: '#B5584B' }} />
+              <Area type="stepAfter" dataKey="paths_eliminated" stroke="#4F9E7C" fill="#4F9E7C" fillOpacity={0.1} name="Paths eliminated" strokeWidth={1.5} dot={{ r: 2, fill: '#4F9E7C' }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -137,7 +135,14 @@ export default function RemediationPanel({
                     <div className="fix-title">
                       {fix.title}
                       {fix.is_recommended_chokepoint && (
-                        <span className="tag tag-amber" style={{ marginLeft: 8 }}>⭐ Chokepoint</span>
+                        <span className="tag tag-amber" style={{ marginLeft: 8, gap: 4 }}>
+                          <Star size={10} /> Chokepoint
+                          <InfoTooltip title="Chokepoint" size={11}>
+                            The first fix of the minimum set that covers every path,
+                            chosen by greedy weighted set-cover (paths eliminated per
+                            unit of cost) — the &ldquo;fewest fixes, most paths&rdquo; answer.
+                          </InfoTooltip>
+                        </span>
                       )}
                     </div>
                     <div className="fix-description">{fix.description}</div>
@@ -166,6 +171,11 @@ export default function RemediationPanel({
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textAlign: 'right', lineHeight: 1.4 }}>
                       paths eliminated
+                      <InfoTooltip title="Paths eliminated" align="left" size={11}>
+                        How many of the {totalPaths} enumerated paths disappear
+                        when this fix is applied, measured by removing it and
+                        re-running the path-finder ({fix.efficacy_percentage}% of paths).
+                      </InfoTooltip>
                       <br />
                       {hasVerifyRun ? (
                         <span style={{ color: verifiedHere > 0 ? 'var(--accent-green)' : 'var(--accent-amber)' }}>

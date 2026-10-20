@@ -41,14 +41,59 @@
   --text-1: #8D909C;
   --text-2: #5F6270;
 
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   --radius-sm: 6px;
   --radius-md: 10px;
 
   --shadow-card: 0 1px 2px rgba(0,0,0,0.3);
 }
+
+/* ── Light theme ─────────────────────────────────────────────────────────────
+   Same flat, restrained system as dark — surfaces, 1px borders, status-only
+   accents — re-toned for a light background. Applied via data-theme="light"
+   on <html>; the base :root above is the dark default. */
+:root[data-theme="light"] {
+  --bg-0:          #F5F6F8;
+  --bg-1:          #FFFFFF;
+  --bg-2:          #EDEFF3;
+  --bg-3:          #E0E4EA;
+  --surface:       #FFFFFF;
+  --surface-hover: #F0F2F5;
+  --border:        #E2E5EB;
+  --border-bright: #C9CFD9;
+
+  --accent-verified:  #2E8B63;
+  --accent-partial:   #99791B;
+  --accent-gap:       #B5493B;
+
+  --accent-cyan:   var(--accent-partial);
+  --accent-blue:   #3E639E;
+  --accent-purple: #6A5BA8;
+  --accent-red:    var(--accent-gap);
+  --accent-green:  var(--accent-verified);
+  --accent-amber:  var(--accent-partial);
+
+  --text-0: #191C23;
+  --text-1: #4C515C;
+  --text-2: #767B86;
+
+  --shadow-card: 0 1px 2px rgba(16,24,40,0.06);
+}
+
+/* Light-theme component tweaks where a dark-tuned value does not carry over. */
+:root[data-theme="light"] .tag-red    { background: rgba(181,73,59,0.10);  color: #A33D30; border-color: rgba(181,73,59,0.28); }
+:root[data-theme="light"] .tag-green  { background: rgba(46,139,99,0.10);  color: #227A52; border-color: rgba(46,139,99,0.28); }
+:root[data-theme="light"] .tag-amber  { background: rgba(153,121,27,0.12); color: #846411; border-color: rgba(153,121,27,0.30); }
+:root[data-theme="light"] .tag-blue   { background: rgba(62,99,158,0.10);  color: #355491; border-color: rgba(62,99,158,0.25); }
+:root[data-theme="light"] .tag-purple { background: rgba(106,91,168,0.10); color: #594A96; border-color: rgba(106,91,168,0.25); }
+:root[data-theme="light"] .tag-cyan   { background: rgba(153,121,27,0.08); color: #846411; border-color: rgba(153,121,27,0.20); }
+:root[data-theme="light"] .tag-gray   { background: rgba(16,24,40,0.04);   color: var(--text-2); border-color: var(--border); }
+:root[data-theme="light"] .btn-primary { color: #fff; }
+:root[data-theme="light"] .nav-badge   { color: #fff; }
+:root[data-theme="light"] .info-tip-bubble { box-shadow: 0 8px 24px rgba(16,24,40,0.14); }
+:root[data-theme="light"] .step-node { background: var(--bg-2); }
 
 /* ── Base ── */
 html, body, #root {
@@ -211,9 +256,10 @@ html, body, #root {
   text-transform: uppercase; color: var(--text-2);
 }
 .stat-value {
-  font-size: 28px; font-weight: 800;
+  font-size: 23px; font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text-0);
-  line-height: 1;
+  line-height: 1.1;
 }
 .stat-value.danger { color: var(--accent-gap); }
 .stat-value.safe   { color: var(--accent-verified); }
@@ -365,7 +411,7 @@ html, body, #root {
 .fix-rank {
   width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 800; font-family: var(--font-mono);
+  font-size: 15px; font-weight: 600; font-family: var(--font-mono);
   background: var(--bg-2); border: 1px solid var(--border);
 }
 .fix-rank.rank-1 {
@@ -378,7 +424,7 @@ html, body, #root {
 .fix-description { font-size: 12px; color: var(--text-2); margin-bottom: 8px; line-height: 1.5; }
 .fix-meta { display: flex; gap: 6px; flex-wrap: wrap; }
 .fix-action { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.fix-efficacy { font-size: 22px; font-weight: 800; color: var(--accent-verified); }
+.fix-efficacy { font-size: 19px; font-weight: 600; font-family: var(--font-mono); color: var(--accent-verified); }
 
 /* ── Network Graph Container ── */
 .cyto-container {
@@ -427,7 +473,7 @@ html, body, #root {
   display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
 }
 .risk-score {
-  font-size: 18px; font-weight: 800; font-family: var(--font-mono);
+  font-size: 18px; font-weight: 600; font-family: var(--font-mono);
   line-height: 1;
 }
 .risk-score.high { color: var(--accent-gap); }
@@ -502,6 +548,82 @@ html, body, #root {
 /* ── Divider ── */
 .divider { height: 1px; background: var(--border); margin: 4px 0; }
 
+/* ── Utility ── */
+.mono { font-family: var(--font-mono); font-weight: 600; color: var(--text-0); font-size: 12px; }
+
 /* ── Grid helpers ── */
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; } .sidebar { display: none; } }
+
+/* ── Scenario status dots (replace the former emoji) ── */
+.scenario-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  display: inline-block; box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset;
+}
+.scenario-dot.adversary { background: var(--accent-gap); }
+.scenario-dot.benign    { background: var(--accent-verified); }
+.scenario-tab { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ── Info tooltip ── */
+.info-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
+.info-tip-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; border: none; background: none; cursor: help;
+  color: var(--text-2); line-height: 0; border-radius: 50%;
+}
+.info-tip-trigger:hover, .info-tip-trigger:focus-visible { color: var(--text-0); outline: none; }
+.info-tip-bubble {
+  z-index: 300; max-width: 92vw;
+  background: var(--bg-2); border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm); box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+  padding: 10px 12px; cursor: default;
+  font-family: var(--font-sans); font-size: 11px; line-height: 1.55;
+  color: var(--text-1); font-weight: 400; letter-spacing: 0;
+  text-transform: none; text-align: left; white-space: normal;
+}
+.info-tip-title {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text-0);
+  margin-bottom: 5px; letter-spacing: 0.02em;
+}
+.info-tip-body { display: block; }
+.info-formula {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-0);
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-radius: 4px; padding: 5px 7px; margin-bottom: 7px;
+}
+.info-kv { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 10.5px; }
+.info-kv td { padding: 2px 0; color: var(--text-1); }
+.info-kv td:last-child { text-align: right; color: var(--text-0); }
+.info-kv-total td { border-top: 1px solid var(--border); padding-top: 4px; font-weight: 600; color: var(--text-0); }
+.info-note { margin-top: 7px; color: var(--text-2); font-size: 10px; }
+
+/* ── Docs / Methodology ── */
+.doc-body { display: flex; flex-direction: column; gap: 22px; max-width: 760px; }
+.doc-h {
+  font-size: 13px; font-weight: 600; color: var(--text-0);
+  letter-spacing: 0.02em; margin-bottom: 8px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.doc-body p { font-size: 13px; color: var(--text-1); line-height: 1.65; margin-bottom: 8px; }
+.doc-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.doc-list li {
+  font-size: 12.5px; color: var(--text-1); line-height: 1.6;
+  padding-left: 14px; position: relative;
+}
+.doc-list li::before {
+  content: ''; position: absolute; left: 0; top: 9px;
+  width: 4px; height: 4px; border-radius: 1px; background: var(--text-2);
+}
+.doc-list b, .doc-body p b { color: var(--text-0); font-weight: 600; }
+.doc-formula {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text-0);
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-partial);
+  border-radius: 4px; padding: 10px 12px; margin: 4px 0 10px;
+}
+.doc-code {
+  font-family: var(--font-mono); font-size: 11.5px;
+  background: var(--bg-0); border: 1px solid var(--border);
+  border-radius: 3px; padding: 1px 5px; color: var(--text-0);
+}
+.doc-muted { color: var(--text-2); font-size: 12px; }

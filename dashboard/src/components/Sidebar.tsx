@@ -1,6 +1,6 @@
 import {
   Server, Shield, Activity, Wrench, RotateCcw,
-  Network, AlertTriangle, ShieldCheck
+  Network, AlertTriangle, ShieldCheck, BookOpen, Bug
 } from 'lucide-react';
 import type { StatusData } from '../types';
 
@@ -16,7 +16,9 @@ const TABS = [
   { id: 'overview',    label: 'Overview',     icon: Activity },
   { id: 'network',     label: 'Network',      icon: Network },
   { id: 'paths',       label: 'Attack Paths', icon: AlertTriangle },
+  { id: 'techniques',  label: 'Techniques',   icon: Bug },
   { id: 'remediation', label: 'Remediation',  icon: Wrench },
+  { id: 'docs',        label: 'Methodology',  icon: BookOpen },
 ];
 
 export default function Sidebar({ status, activeTab, onTabChange, onReset, loading }: Props) {

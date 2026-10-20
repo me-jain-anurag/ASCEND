@@ -21,10 +21,16 @@ export interface PathStep {
   vector: Vector; credential: Credential | null;
   description: string; verified: boolean | null;
 }
+export interface RiskFactors {
+  severity: number; asset_weight: number; confidence: number;
+  length_penalty: number; formula: string; notes: string;
+}
 export interface AttackPath {
   path_id: string; name: string; length: number;
   entry_host: string; crown_jewel_host: string;
-  overall_verified: boolean | null; risk_score?: number; steps: PathStep[];
+  overall_verified: boolean | null;
+  risk_score?: number; risk_factors?: RiskFactors;
+  steps: PathStep[];
 }
 export interface PathsResponse {
   scenario: string; name: string; entry_point: string; crown_jewel: string;
@@ -76,6 +82,20 @@ export interface RemediationData {
   efficacy_curve: EfficacyPoint[];
   /** Real list of applied fix ids, read from GET /api/remediation on load. */
   applied_fixes?: string[];
+}
+
+// ─── Knowledge (techniques & CVEs) ─────────────────────────────────────────────
+export interface KnowledgeTechnique {
+  attack_id: string; name: string; tactic: string; description: string;
+  cwe: string[]; capec: string[]; present_in_lab: boolean;
+}
+export interface KnowledgeCVE {
+  cve_id: string; name: string; base_cvss: number | null; cvss_vector: string;
+  attack_id: string; affected: string; description: string; present_in_lab: boolean;
+}
+export interface KnowledgeData {
+  source: string; techniques: KnowledgeTechnique[]; cves: KnowledgeCVE[];
+  demonstrated_count: number;
 }
 
 // ─── Status ───────────────────────────────────────────────────────────────────

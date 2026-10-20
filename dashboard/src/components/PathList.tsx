@@ -1,6 +1,26 @@
 import { useState } from 'react';
-import { ChevronDown, Shield, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import type { AttackPath, VerifyData } from '../types';
+import { ChevronDown, Shield, CheckCircle, XCircle, AlertTriangle, KeyRound } from 'lucide-react';
+import type { AttackPath, VerifyData, RiskFactors } from '../types';
+import InfoTooltip from './InfoTooltip';
+
+/** Compact breakdown of how a path's risk score was computed. */
+function RiskExplain({ f, score }: { f: RiskFactors; score: number }) {
+  return (
+    <>
+      <div className="info-formula">{f.formula}</div>
+      <table className="info-kv">
+        <tbody>
+          <tr><td>severity (max CVSS)</td><td>{f.severity.toFixed(1)}</td></tr>
+          <tr><td>× asset weight</td><td>{f.asset_weight.toFixed(2)}</td></tr>
+          <tr><td>× confidence</td><td>{f.confidence.toFixed(2)}</td></tr>
+          <tr><td>− length penalty</td><td>{f.length_penalty.toFixed(2)}</td></tr>
+          <tr className="info-kv-total"><td>= risk</td><td>{score.toFixed(1)}</td></tr>
+        </tbody>
+      </table>
+      <div className="info-note">{f.notes}</div>
+    </>
+  );
+}
 
 interface Props {
   paths: AttackPath[];
@@ -113,11 +133,18 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
 
               {/* Risk score */}
               {path.risk_score != null && path.risk_score > 0 && (
-                <div className="path-risk">
+                <div className="path-risk" onClick={e => e.stopPropagation()}>
                   <div className={`risk-score ${path.risk_score >= 7 ? 'high' : path.risk_score >= 4 ? 'med' : 'low'}`}>
                     {path.risk_score.toFixed(1)}
                   </div>
-                  <div className="risk-label">Risk</div>
+                  <div className="risk-label">
+                    Risk
+                    {path.risk_factors && (
+                      <InfoTooltip title="Risk score" align="left" size={11}>
+                        <RiskExplain f={path.risk_factors} score={path.risk_score} />
+                      </InfoTooltip>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -207,8 +234,10 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
                               border: '1px solid rgba(245,158,11,0.2)',
                               borderRadius: 4, fontSize: 11, lineHeight: 1.5,
                               color: 'var(--accent-amber)',
+                              display: 'flex', alignItems: 'flex-start', gap: 6,
                             }}>
-                              ⚠ {stepVerify.reason}
+                              <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                              {stepVerify.reason}
                             </div>
                           )}
 
@@ -216,14 +245,15 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
                           {stepVerify && sStatus !== 'not_executable' && (
                             <div className="step-evidence">
                               <div>$ {stepVerify.evidence.stdout}</div>
-                              <div className="telemetry">⚡ {stepVerify.evidence.telemetry}</div>
+                              <div className="telemetry">{stepVerify.evidence.telemetry}</div>
                             </div>
                           )}
 
                           {/* Credential info */}
                           {step.credential && (
-                            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-2)' }}>
-                              🔑 Credential: <span style={{ color: 'var(--accent-amber)' }}>{step.credential.type}</span> — {step.credential.discoverable_at}
+                            <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <KeyRound size={12} color="var(--accent-partial)" />
+                              Credential: <span style={{ color: 'var(--accent-partial)' }}>{step.credential.type}</span> — {step.credential.discoverable_at}
                             </div>
                           )}
                         </div>
