@@ -92,7 +92,7 @@ flowchart TB
     LAB -->|"observe"| COL
     COL --> FACTS
     FACTS --> PATH
-    PATH -->|"6 routes"| CHOKE
+    PATH -->|"2 routes"| CHOKE
     PATH -->|"try each route"| VER
     VER -->|"execute in"| LAB
     VER --> CANARY
@@ -218,17 +218,19 @@ so the prediction and the demonstration cannot disagree.
 Against the current lab, all of this is real output:
 
 ```
-4 weaknesses found    6 attack routes    3 verified   3 partial   precision 0.5
-                                         19 of 22 individual steps executed and confirmed
+4 weaknesses found    2 attack routes    1 verified   1 partial   precision 0.5
+                                         5 of 6 individual steps executed and confirmed
 ```
 
-Three routes are **proven end to end by execution**. The other three each finish
-with the kernel exploit and are honestly reported as partial. `db01` is
+One route is **proven end to end by execution**. The other finishes with the
+kernel exploit and is honestly reported as partial. (The raw search finds 6
+orderings; 4 of them carry a sudo step on app01 that the route never needs, so
+they collapse to these 2. See `enumerator/README.md`.) `db01` is
 deliberately reachable two ways — one a container can execute, one it cannot — so
 a single run shows both what we can prove and what we refuse to claim.
 
-The recommended fix is the exposed key: it sits on **all six** routes and costs
-the least to fix. Patching the DirtyPipe CVE kills only three, because `db01` has
+The recommended fix is the exposed key: it sits on **both** routes and costs
+the least to fix. Patching the DirtyPipe CVE kills only one, because `db01` has
 a second route — which is exactly the kind of thing a vulnerability list will
 never tell you.
 

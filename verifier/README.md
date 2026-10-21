@@ -1,7 +1,7 @@
 # `verifier/` — proving the attack paths are real
 
 ```
-environment_graph/facts.json ──► pathfinder ──► 6 attack paths
+environment_graph/facts.json ──► pathfinder ──► 2 attack paths
                                                      │
                                     "are these real?" │
                                                      ▼
@@ -100,13 +100,12 @@ Run against the current lab, this is the real output:
 
 | Paths | Result |
 |---|---|
-| 3 | **verified** — every step executed and succeeded |
-| 3 | **partial** — every executable step succeeded, one step could not run |
+| 1 | **verified** — every step executed and succeeded |
+| 1 | **partial** — every executable step succeeded, one step could not run |
 | 0 | failed |
 
-Precision **0.5**. **19 of 22 individual steps genuinely executed and
-confirmed.** The 3 that did not are all the same DirtyPipe step, each carrying
-its reason.
+Precision **0.5**. **5 of 6 individual steps genuinely executed and
+confirmed.** The one that did not is the DirtyPipe step, carrying its reason.
 
 db01 is reachable as root two ways on purpose: a setuid-root `find`, which a
 container can genuinely execute, and the DirtyPipe kernel exploit, which it

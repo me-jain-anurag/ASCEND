@@ -350,8 +350,7 @@
     <div class="hop start"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">web01 — account <span class="mono">www-data</span> (low privilege)</div><div class="via">the attacker's starting foothold</div></div></div>
     <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">finds a reusable SSH key</div><div class="via"><code>T1552.001</code> — reads a key left in a world-readable file</div></div></div>
     <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">app01 — account <span class="mono">appuser</span></div><div class="via"><code>T1021.004 + T1550</code> — logs in over SSH reusing that key</div></div></div>
-    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">app01 — now <span class="mono">root</span></div><div class="via"><code>T1548.003</code> — abuses a sudo misconfiguration to become root</div></div></div>
-    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">db01 — account <span class="mono">dbuser</span></div><div class="via"><code>T1021.004</code> — reaches the database host over SSH</div></div></div>
+    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">db01 — account <span class="mono">dbuser</span></div><div class="via"><code>T1021.004 + T1550</code> — the same key opens the database host over SSH</div></div></div>
     <div class="hop end"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">db01 — <span class="mono">root</span> · CROWN JEWEL COMPROMISED</div><div class="via"><code>T1068</code> — a kernel exploit takes full control</div></div></div>
   </div>
   <div class="key"><span class="lbl">Where the chokepoint lives</span>Notice the reused SSH key near the top. <strong>Remove that one key</strong> and every path that depended on it dies at once — that's exactly the kind of high-value fix the chokepoint engine is built to find.</div>
@@ -404,7 +403,7 @@
         <li><strong>web01</strong> — entry foothold, low privilege</li>
         <li><strong>app01</strong> — sudo + SUID escape, mid-value</li>
         <li><strong>db01</strong> — the crown jewel (root, highest value)</li>
-        <li>Currently finds 6 paths; 3 verify (precision ≈ 0.5)</li>
+        <li>Currently finds 2 paths; 1 verifies, 1 partial (precision ≈ 0.5)</li>
       </ul>
     </div>
     <div class="phase">

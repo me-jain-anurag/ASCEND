@@ -173,7 +173,7 @@
     <div class="mod"><div class="nm">chokepoint/</div><div class="ds">Computes the fewest fixes that break the most routes. <span class="files">engine.py</span></div><div class="st"><span class="pill done">done</span></div></div>
     <div class="mod"><div class="nm">service/</div><div class="ds">A FastAPI web server that ties it all together and serves JSON. <span class="files">main.py (~830 lines)</span></div><div class="st"><span class="pill done">done</span></div></div>
     <div class="mod"><div class="nm">dashboard/</div><div class="ds">A React web app that draws the network, the routes and the fixes. <span class="files">App.tsx, components/ ×4</span></div><div class="st"><span class="pill done">done</span></div></div>
-    <div class="mod"><div class="nm">tests/</div><div class="ds">42 automated checks, including one that fails the build if anything claims an execution that never happened. <span class="files">test_pipeline.py + verifier/tests</span></div><div class="st"><span class="pill done">done</span></div></div>
+    <div class="mod"><div class="nm">tests/</div><div class="ds">48 automated checks, including one that fails the build if anything claims an execution that never happened. <span class="files">test_pipeline.py + verifier/tests</span></div><div class="st"><span class="pill done">done</span></div></div>
     <div class="mod"><div class="nm">scorer/</div><div class="ds">The machine-learning model that scores exploitability. Its training data is what the verifier produces. <span class="files">— no folder yet —</span></div><div class="st"><span class="pill planned">planned</span></div></div>
   </div>
   <p class="muted">So: the whole Phase 1 foundation from the explainer is built and runs. The Phase 2 machine-learning scorer is the main thing still ahead (see §14).</p>
@@ -354,7 +354,7 @@
 <section id="tests">
   <span class="snum">11 — Keeping it honest</span>
   <h2><span class="mono" style="font-size:.8em">tests/</span> — 42 checks, including anti-lying checks</h2>
-  <p>There are 42 automated tests across <span class="filepath">tests/test_pipeline.py</span> and the verifier's own tests. Beyond ordinary correctness, some exist specifically to protect the project's integrity:</p>
+  <p>There are 48 automated tests across <span class="filepath">tests/test_pipeline.py</span> and the verifier's own tests. Beyond ordinary correctness, some exist specifically to protect the project's integrity:</p>
   <ul>
     <li>A test that <strong>fails the build if anything claims an execution that never happened.</strong></li>
     <li>A test that the repository contains <strong>no exploit code</strong>.</li>
@@ -370,25 +370,25 @@
   <p>Run against the current 3-host lab, this is genuine output — not a mockup:</p>
   <div class="stats">
     <div class="stat"><div class="num">4</div><div class="lbl">weaknesses found</div></div>
-    <div class="stat"><div class="num">6</div><div class="lbl">attack routes</div></div>
-    <div class="stat"><div class="num">3</div><div class="lbl">verified end-to-end</div></div>
-    <div class="stat"><div class="num">3</div><div class="lbl">partial (honest)</div></div>
+    <div class="stat"><div class="num">2</div><div class="lbl">attack routes</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">verified end-to-end</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">partial (honest)</div></div>
     <div class="stat"><div class="num">0.5</div><div class="lbl">precision</div></div>
   </div>
-  <p>Three routes are <strong>proven step by step by execution</strong> (19 of 22 individual steps confirmed). The other three each end with the kernel exploit and are honestly reported as <strong>partial</strong> — because <span class="mono">db01</span> is deliberately reachable two ways, one a container can execute and one it can't, so a single run shows both what ASCEND can prove and what it refuses to claim.</p>
+  <p>One route is <strong>proven step by step by execution</strong> (5 of 6 individual steps confirmed). The other ends with the kernel exploit and is honestly reported as <strong>partial</strong> — because <span class="mono">db01</span> is deliberately reachable two ways, one a container can execute and one it can't, so a single run shows both what ASCEND can prove and what it refuses to claim.</p>
   <h3>The chokepoint result</h3>
   <div class="tablewrap">
     <table>
       <thead><tr><th>Fix</th><th>Technique</th><th>Routes killed</th></tr></thead>
       <tbody>
-        <tr><td><strong>Remove the exposed SSH key</strong> ◂ recommended</td><td><span class="mono">T1552.001</span></td><td><strong>6 / 6</strong></td></tr>
-        <tr><td>Drop the NOPASSWD sudo rule on <span class="mono">tar</span></td><td><span class="mono">T1548.003</span></td><td>4 / 6</td></tr>
-        <tr><td>Remove the setuid <span class="mono">find</span></td><td><span class="mono">T1548.001</span></td><td>3 / 6</td></tr>
-        <tr><td>Patch the DirtyPipe kernel</td><td><span class="mono">T1068</span></td><td>3 / 6</td></tr>
+        <tr><td><strong>Remove the exposed SSH key</strong> ◂ recommended</td><td><span class="mono">T1552.001</span></td><td><strong>2 / 2</strong></td></tr>
+        <tr><td>Remove the setuid <span class="mono">find</span></td><td><span class="mono">T1548.001</span></td><td>1 / 2</td></tr>
+        <tr><td>Patch the DirtyPipe kernel</td><td><span class="mono">T1068</span></td><td>1 / 2</td></tr>
+        <tr><td>Drop the NOPASSWD sudo rule on <span class="mono">tar</span></td><td><span class="mono">T1548.003</span></td><td>0 / 2</td></tr>
       </tbody>
     </table>
   </div>
-  <div class="key"><span class="lbl">The point in one line</span>The exposed key sits on <strong>all six</strong> routes and is the cheapest to fix — so it beats patching the scary-sounding kernel CVE, which only kills three (the database has a second route). That's exactly the insight a plain vulnerability list can never give you.</div>
+  <div class="key"><span class="lbl">The point in one line</span>The exposed key sits on <strong>both</strong> routes and is the cheapest to fix — so it beats patching the scary-sounding kernel CVE, which only kills one (the database has a second route). The sudo rule is a real misconfiguration, but no route to the database needs it, so fixing it kills nothing. That's exactly the insight a plain vulnerability list can never give you.</div>
 </section>
 
 <!-- 13 -->

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCEND — 10-Day Status Sheet</title>
+<style>
+  :root{
+    --dark:#1E293B;--blue:#2563EB;--blueTint:#EFF3FB;--white:#FFFFFF;--offWhite:#F8FAFC;
+    --border:#E2E8F0;--text:#1E293B;--muted:#64748B;--ok:#1f8a54;--maxw:1000px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);background:var(--white);line-height:1.6;font-size:17px;}
+  a{color:var(--blue);text-decoration:none;}
+
+  header.site{background:var(--dark);color:var(--white);padding:46px 24px 30px;}
+  header.site .inner{max-width:var(--maxw);margin:0 auto;}
+  .eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700;margin-bottom:14px;}
+  header.site h1{margin:0 0 6px;font-size:36px;line-height:1.12;font-weight:800;letter-spacing:-.5px;}
+  header.site p.lede{font-size:18px;color:#d7d8e4;max-width:720px;margin:16px 0 0;}
+  .bluebar{height:3px;background:var(--blue);width:100%;}
+
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap;padding:0 12px;}
+  nav.toc .inner{max-width:var(--maxw);margin:0 auto;display:flex;gap:2px;}
+  nav.toc a{color:var(--muted);font-size:13.5px;font-weight:600;padding:13px 12px;border-bottom:2px solid transparent;display:inline-block;}
+  nav.toc a:hover{color:var(--text);}
+
+  main{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  section{padding:46px 0 8px;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  .snum{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin-bottom:8px;}
+  h2{font-size:26px;line-height:1.2;margin:0 0 14px;font-weight:800;letter-spacing:-.3px;}
+  p{margin:0 0 15px;}
+  .muted{color:var(--muted);}
+  .lead{font-size:19px;}
+
+  .key{background:var(--blueTint);border-left:3px solid var(--blue);padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;}
+  .key .lbl{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);display:block;margin-bottom:4px;}
+  .note{background:var(--offWhite);border:1px solid var(--border);padding:16px 20px;border-radius:8px;margin:20px 0;font-size:15.5px;}
+
+  .startend{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin:22px 0;}
+  .box{border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:var(--white);}
+  .box .cap{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);margin-bottom:8px;}
+  .box.start{background:var(--offWhite);}
+  .box ul{margin:0;padding-left:18px;font-size:14px;color:var(--muted);line-height:1.5;}
+  .box.start p{margin:0;font-size:15px;}
+  .big-arrow{font-size:26px;color:var(--blue);font-weight:800;text-align:center;}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0;}
+  .card{border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .card .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--blue);background:var(--blueTint);padding:2px 9px;border-radius:20px;margin-bottom:9px;}
+  .card h4{margin:0 0 6px;font-size:16px;font-weight:800;}
+  .card p{margin:0;font-size:14px;color:var(--muted);line-height:1.5;}
+
+  .tblwrap{overflow-x:auto;margin:14px 0 8px;border:1px solid var(--border);border-radius:10px;}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:680px;}
+  thead th{background:var(--dark);color:#fff;text-align:left;padding:11px 13px;font-weight:700;font-size:13px;}
+  tbody td{padding:11px 13px;border-top:1px solid var(--border);vertical-align:top;}
+  tbody tr:nth-child(even){background:var(--offWhite);}
+  td.day{white-space:nowrap;font-weight:800;color:var(--dark);}
+  td.enter{font-style:italic;color:var(--dark);}
+  .person-head{display:flex;align-items:center;gap:10px;margin:32px 0 4px;}
+  .person-head .pill{background:var(--blue);color:#fff;font-size:12px;font-weight:800;padding:4px 11px;border-radius:20px;}
+  .person-head h3{margin:0;font-size:19px;}
+  .phase{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);background:var(--offWhite);border:1px solid var(--border);padding:2px 8px;border-radius:5px;margin-left:6px;}
+
+  ul.next{list-style:none;padding:0;margin:14px 0;}
+  ul.next li{padding:8px 0 8px 26px;position:relative;font-size:15.5px;}
+  ul.next li:before{content:"→";position:absolute;left:0;top:8px;color:var(--blue);font-weight:800;}
+
+  footer{background:var(--offWhite);color:var(--muted);font-size:13.5px;padding:28px 24px;text-align:center;border-top:1px solid var(--border);}
+  @media (max-width:620px){header.site h1{font-size:28px;}.startend{grid-template-columns:1fr;}.big-arrow{transform:rotate(90deg);}}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="inner">
+    <div class="eyebrow">ASCEND · 10-Day Status Sheet · 4 People</div>
+    <h1>From the lab to finished — in 10 days</h1>
+    <p class="lede">A simple day-by-day work sheet for four people. We start with <strong>only the
+    Docker lab built</strong>, and by the end of 10 days the whole system is built, run, proven, and
+    written up — all of 7th-sem done. Each day, each person writes one short status line.</p>
+  </div>
+</header>
+<div class="bluebar"></div>
+
+<nav class="toc"><div class="inner">
+  <a href="#frame">Start → end</a>
+  <a href="#roles">The 4 people</a>
+  <a href="#p1">P1 Scanners &amp; Routes</a>
+  <a href="#p2">P2 Prover &amp; Fixes</a>
+  <a href="#p3">P3 Dashboard</a>
+  <a href="#p4">P4 Tests &amp; Report</a>
+  <a href="#sheet">Using the sheet</a>
+</div></nav>
+
+<main>
+
+<section id="frame">
+  <span class="snum">The idea</span>
+  <h2>Where we start and where we finish</h2>
+  <p>For this sheet we pretend <strong>only one thing is built</strong> — the practice lab. Everything
+  else gets built, run and proven over the 10 days. (In real life more is already done — so just mark
+  those rows done as you go. The sheet is the full story of 7th sem, start to finish.)</p>
+  <div class="startend">
+    <div class="box start">
+      <div class="cap">Day 0 — what we have</div>
+      <p><strong>The practice network only.</strong> A safe 3-machine Docker lab (web01 → app01 → db01)
+      that rebuilds and resets in seconds.</p>
+    </div>
+    <div class="big-arrow">→</div>
+    <div class="box">
+      <div class="cap">Day 10 — what we'll have</div>
+      <ul>
+        <li>Scanners that record each machine's weaknesses</li>
+        <li>Route finder (2 distinct break-in routes to the database)</li>
+        <li>Prover that runs each route and confirms it (1 proven, 1 partial)</li>
+        <li>Fix engine (cheapest fixes that block the most routes)</li>
+        <li>Dashboard showing the network, routes and results</li>
+        <li>48 automated tests</li>
+        <li><strong>+ a clean run, the before/after proof (2→0), charts and the report</strong></li>
+      </ul>
+    </div>
+  </div>
+  <div class="key"><span class="lbl">How the 10 days flow</span>
+    <strong>Days 1–7: build the pieces and get the first full run.</strong>
+    <strong>Days 8–10: prove the fixes, make the charts and dashboard demo, write the report.</strong>
+    The pieces connect in order — scanners feed the route finder, which feeds the prover, which feeds
+    the fix engine and the dashboard — so the days are lined up to match.</p>
+  </div>
+</section>
+
+<section id="roles">
+  <span class="snum">The team</span>
+  <h2>The four people</h2>
+  <div class="cards">
+    <div class="card"><span class="tag">Person 1</span><h4>Scanners &amp; Route Finder</h4>
+      <p>Builds the probes that read each machine, and the finder that lists every break-in route.</p></div>
+    <div class="card"><span class="tag">Person 2</span><h4>Prover &amp; Fix Engine</h4>
+      <p>Builds the part that runs each route to prove it, and the engine that picks the cheapest fixes.</p></div>
+    <div class="card"><span class="tag">Person 3</span><h4>Dashboard &amp; Demo</h4>
+      <p>Builds the screen that shows the network, routes and before/after, and the review demo.</p></div>
+    <div class="card"><span class="tag">Person 4</span><h4>Tests, Runs &amp; Report</h4>
+      <p>Writes the 48 tests, runs the full pipeline, makes the charts, and writes the report.</p></div>
+  </div>
+  <p class="muted">Each person has one row per day. When a day's task is done, they paste the short
+  line from the <em>"What to enter"</em> column and tick it. The <em>"Why it matters"</em> note
+  shows how that day's work fits the whole system — keep it next to the task.</p>
+</section>
+
+<!-- P1 -->
+<section id="p1">
+  <div class="person-head"><span class="pill">P1</span><h3>Scanners &amp; Route Finder</h3></div>
+  <p class="muted">Builds the "eyes" of the system (what's wrong on each machine) and the "brain" that
+  turns those weaknesses into actual break-in routes.</p>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Day</th><th>What to do</th><th>What to enter in the sheet</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="day">1</td><td>Reset the lab to a clean state and write the first read-only scanners (which SUID programs and sudo rules exist on each machine).</td><td class="enter">"Lab reset; first scanners read web01/app01/db01."</td><td>The scanners are the eyes — everything starts from the facts they collect.</td></tr>
+      <tr><td class="day">2</td><td>Finish the rest of the scanners (exposed keys, which machines can reach which, kernel version, Docker socket). Save one facts file per machine.</td><td class="enter">"All scanners done — facts saved per host."</td><td>Complete, honest facts, so no weakness is missed and none is invented.</td></tr>
+      <tr><td class="day">3</td><td>Turn raw facts into real "weaknesses", keeping only the 7 techniques in scope.</td><td class="enter">"Weaknesses derived — 4 found across the lab."</td><td>Cuts the noise down to the few weaknesses that actually matter.</td></tr>
+      <tr><td class="day">4</td><td>Build the route finder: search from the entry machine up to the database, step by step.</td><td class="enter">"Route finder builds paths web01→db01."</td><td>This is the brain — it lists every way in, not just single weaknesses.</td></tr>
+      <tr><td class="day">5</td><td>Tidy it up: merge duplicate routes, cap depth and path count, report what was cut. 6 raw orderings collapse to 2 distinct routes.</td><td class="enter">"Route finder tuned — 2 distinct routes."</td><td>A trustworthy route count with no double-counting.</td></tr>
+      <tr><td class="day">6</td><td>Hand the routes to P2's prover in the right format; fix any mismatches.</td><td class="enter">"Routes wired into the prover."</td><td>The finder and prover must speak the same language to work together.</td></tr>
+      <tr><td class="day">7</td><td>Help connect the whole chain — scan → find → prove — and run it once end to end.</td><td class="enter">"Scan→find→prove runs end to end."</td><td>First time the full pipeline flows start to finish.</td></tr>
+      <tr><td class="day">8</td><td>On the first real run, sanity-check that the routes make sense.</td><td class="enter">"Routes checked sensible on real run."</td><td>Catch any wrong route before it reaches the report.</td></tr>
+      <tr><td class="day">9</td><td>Lock the route finder's behaviour for the final run (same settings, recorded).</td><td class="enter">"Route finder frozen for final run."</td><td>Stable routes so the report and demo match.</td></tr>
+      <tr><td class="day">10</td><td>Help with the final clean run and confirm the route count.</td><td class="enter">"Final run — 2 routes confirmed."</td><td>The number we present is the number the system actually produced.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- P2 -->
+<section id="p2">
+  <div class="person-head"><span class="pill">P2</span><h3>Prover &amp; Fix Engine</h3></div>
+  <p class="muted">Builds the part that <em>runs</em> each route to prove it really works, and the engine
+  that picks the smallest, cheapest set of fixes.</p>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Day</th><th>What to do</th><th>What to enter in the sheet</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="day">1</td><td>Place the hidden "canary" tokens in the lab and plan how each technique will be run.</td><td class="enter">"Canaries placed; prover plan ready."</td><td>The canary is how we PROVE a route worked instead of guessing.</td></tr>
+      <tr><td class="day">2</td><td>Build the first prover: local tricks (sudo rule, SUID program, exposed key).</td><td class="enter">"Local prover works — sudo/SUID/key confirmed."</td><td>Proves the most common ways to become root on a machine.</td></tr>
+      <tr><td class="day">3</td><td>Build the SSH "jump to another machine" prover.</td><td class="enter">"Lateral prover works — hops web01→app01."</td><td>Proves the attacker can really move across machines, not just in theory.</td></tr>
+      <tr><td class="day">4</td><td>Make pass/fail depend on the canary, with clear reasons (failed / not applicable / timeout).</td><td class="enter">"Pass/fail by canary works, with reasons."</td><td>Honest results — a route only counts if the canary actually fires.</td></tr>
+      <tr><td class="day">5</td><td>Run the prover over P1's 2 routes and save the results file.</td><td class="enter">"First prove run — 1/2 routes confirmed real."</td><td>The core result of the whole project: proven, not predicted.</td></tr>
+      <tr><td class="day">6</td><td>Build the fix engine: find the cheapest set of fixes that blocks the most routes.</td><td class="enter">"Fix engine ranks fixes — exposed key blocks 2/2."</td><td>Turns a list of problems into a clear, cheap action plan.</td></tr>
+      <tr><td class="day">7</td><td>Add the exact "best possible" check to compare against the quick (greedy) pick.</td><td class="enter">"Greedy vs best-possible compared."</td><td>Shows our cheap pick is as good as the best option.</td></tr>
+      <tr><td class="day">8</td><td>Run the proof loop: apply the top fix, re-run, show the routes vanish.</td><td class="enter">"Proof loop works — routes to db01 2→0."</td><td>Proves the recommended fix actually works in the real lab — the headline.</td></tr>
+      <tr><td class="day">9</td><td>Add the two honesty checks: a fix that shouldn't matter (routes unchanged) and our fix-order vs the obvious order.</td><td class="enter">"Negative control + order check done."</td><td>Proves the drop is from the right fix, and our order beats the obvious one.</td></tr>
+      <tr><td class="day">10</td><td>Freeze the prover and fix engine for the final run.</td><td class="enter">"Prover &amp; fix engine frozen."</td><td>Nothing changes, so the demo matches the report.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- P3 -->
+<section id="p3">
+  <div class="person-head"><span class="pill">P3</span><h3>Dashboard &amp; Demo</h3></div>
+  <p class="muted">Builds the screen that shows the network, the routes and the before/after — then a
+  rehearsed 5-minute demo for the review.</p>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Day</th><th>What to do</th><th>What to enter in the sheet</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="day">1</td><td>Set up the dashboard skeleton — the backend (FastAPI) and the screen (React) both run locally.</td><td class="enter">"Dashboard skeleton runs locally."</td><td>The screen everyone will use to see the results.</td></tr>
+      <tr><td class="day">2</td><td>Build the link that feeds the lab and the facts into the screen.</td><td class="enter">"Dashboard reads hosts and facts."</td><td>Connects the screen to the real data from the scanners.</td></tr>
+      <tr><td class="day">3</td><td>Draw the network picture — the 3 machines and how they connect.</td><td class="enter">"Network picture shows web01/app01/db01."</td><td>The main visual reviewers will look at.</td></tr>
+      <tr><td class="day">4</td><td>Draw the break-in routes on top of the network picture.</td><td class="enter">"Routes drawn on the network picture."</td><td>Makes the paths visible, not just a list of text.</td></tr>
+      <tr><td class="day">5</td><td>Show which routes are proven (using P2's results).</td><td class="enter">"Proven routes highlighted."</td><td>Shows at a glance that we prove, not guess.</td></tr>
+      <tr><td class="day">6</td><td>Show the recommended fix and its cost on the screen.</td><td class="enter">"Recommended fix + cost shown."</td><td>Ties the picture to the action plan.</td></tr>
+      <tr><td class="day">7</td><td>Add the before/after-fix view (routes before, then gone).</td><td class="enter">"Before/after view works."</td><td>Lets the reviewer watch the routes disappear — the money shot.</td></tr>
+      <tr><td class="day">8</td><td>Take clean screenshots of each view.</td><td class="enter">"Screenshots captured."</td><td>Backup stills for the report and slides if the live demo fails.</td></tr>
+      <tr><td class="day">9</td><td>Write and dry-run the 5-minute demo (click by click).</td><td class="enter">"Demo script done, dry-run clean."</td><td>A rehearsed, repeatable story for review day.</td></tr>
+      <tr><td class="day">10</td><td>Final polish and a rehearsal with the whole team.</td><td class="enter">"Dashboard polished, demo rehearsed."</td><td>Everyone knows the flow for the review.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- P4 -->
+<section id="p4">
+  <div class="person-head"><span class="pill">P4</span><h3>Tests, Runs &amp; Report</h3></div>
+  <p class="muted">Keeps the code honest with tests, runs the full pipeline, turns the results into
+  charts, and writes the report. Also makes the one naming decision.</p>
+  <div class="tblwrap"><table>
+    <thead><tr><th>Day</th><th>What to do</th><th>What to enter in the sheet</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="day">1</td><td>Make the naming decision (reused credential = T1550 or T1078.003) and set up the test framework.</td><td class="enter">"Naming decided; test setup ready."</td><td>One consistent label everywhere; tests keep everyone honest from day 1.</td></tr>
+      <tr><td class="day">2</td><td>Write the first tests — for the scanners and the weakness rules.</td><td class="enter">"Scanner/rule tests passing."</td><td>Proves the facts and weaknesses are correct, not accidental.</td></tr>
+      <tr><td class="day">3</td><td>Write tests for the route finder and the CVE→technique links.</td><td class="enter">"Route-finder tests passing."</td><td>Proves the routes are found correctly.</td></tr>
+      <tr><td class="day">4</td><td>Write tests for the prover (the canary pass/fail logic).</td><td class="enter">"Prover tests passing."</td><td>Proves a route only counts when the canary truly fires.</td></tr>
+      <tr><td class="day">5</td><td>Write tests for the fix engine — reach 48 checks in total.</td><td class="enter">"Fix-engine tests passing — 48 total."</td><td>The full safety net that keeps the whole system trustworthy.</td></tr>
+      <tr><td class="day">6</td><td>Do a clean full run and save the results file.</td><td class="enter">"Full pipeline run — results saved."</td><td>The real numbers the report will cite.</td></tr>
+      <tr><td class="day">7</td><td>Turn the results into the first charts (routes found vs proven; before vs after), and time the route finder (p95 speed).</td><td class="enter">"Core charts done — 2 found, 1 proven, 2→0; finder p95 recorded."</td><td>Evidence a reviewer can read at a glance.</td></tr>
+      <tr><td class="day">8</td><td>Make the fix charts (which fix blocks how many routes; our order vs the obvious one).</td><td class="enter">"Fix charts done — exposed key blocks 2/2."</td><td>Shows the cheapest-fix logic clearly.</td></tr>
+      <tr><td class="day">9</td><td>Write the report: what ASCEND is, what's built, the results, the proof, and a short 8th-sem note.</td><td class="enter">"Report draft complete."</td><td>The thing you actually submit and present.</td></tr>
+      <tr><td class="day">10</td><td>Final read-through — make the words and numbers match the final run; finalise.</td><td class="enter">"Report final, matches the run."</td><td>No contradictions between report, dashboard and runs.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="sheet">
+  <span class="snum">How to use it</span>
+  <h2>Using the tracking sheet</h2>
+  <ul class="next">
+    <li>Make one tab per person (P1–P4), or one shared tab with a block each.</li>
+    <li>Rows = <strong>Day 1 to Day 10</strong>. Columns = <strong>Task · Status (what to enter) · Done? · Notes</strong>.</li>
+    <li>Each day, the owner pastes the short line from the <em>"What to enter"</em> column once the task is done, and ticks Done.</li>
+    <li>Anything already finished in real life — tick it done straight away. The sheet is the full 7th-sem story; it doesn't have to pretend things aren't built.</li>
+    <li>Keep the <em>"Why it matters"</em> note beside each task so whoever you hand the sheet to understands how each day fits the whole system.</li>
+  </ul>
+  <div class="note"><strong>One line for whoever you hand this to:</strong> starting from just the
+  practice lab, four people spend 10 days building the scanners, route finder, prover, fix engine,
+  dashboard and tests, then running it, proving the fixes work, and writing it up — ending 7th sem
+  with a complete, proven, reproducible result.</div>
+</section>
+
+</main>
+
+<footer>
+  ASCEND — 10-Day Status Sheet · 4 people · lab → finished 7th-sem · prepared 15 Oct 2026
+</footer>
+
+</body>
+</html>

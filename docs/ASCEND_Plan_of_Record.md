@@ -77,7 +77,8 @@ state-space search), `verifier/` (adapters: `config_abuse`, `lateral_ssh`,
 a 3-host container lab — **web01** (entry, `www-data`, low priv, readable SSH key)
 → **app01** (NOPASSWD sudo + SUID escape, asset 30) → **db01** (crown jewel, root,
 asset 100). Entry = `web01:www-data`; target = `root@db01`. The enumerator currently
-finds **6 paths**; **3 verify** (precision ≈ 0.5 at last run).
+finds **2 paths** (6 raw orderings collapse to 2 distinct routes); **1 verifies**,
+the DirtyPipe route is partial (precision ≈ 0.5 at last run).
 
 **Reference lab (PDF target, roadmap):** 10 hosts incl. two QEMU/KVM VMs — db01
 (vulnerable kernel) + db02 (patched control) — plus ci01 (Docker-socket escape),

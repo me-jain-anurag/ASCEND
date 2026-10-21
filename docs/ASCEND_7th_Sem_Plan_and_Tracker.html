@@ -152,15 +152,15 @@
   <ul class="done">
     <li><strong>The practice network</strong> — a safe 3-machine Docker lab (web01 → app01 → db01) that rebuilds and resets in seconds.</li>
     <li><strong>The scanners</strong> — read-only probes that look at each machine and record its weaknesses.</li>
-    <li><strong>The route finder</strong> — lists every break-in path from the entry point to the database (currently finds 6 routes).</li>
+    <li><strong>The route finder</strong> — lists every break-in path from the entry point to the database (currently finds 2 distinct routes).</li>
     <li><strong>The prover (verifier)</strong> — actually runs each route and confirms it worked using a hidden "canary" check, not just a guess.</li>
     <li><strong>The fix engine (chokepoint)</strong> — works out the smallest, cheapest set of fixes that blocks the most routes.</li>
     <li><strong>The dashboard</strong> — a screen (FastAPI + React) to see the network, the routes, and the results.</li>
-    <li><strong>42 automated tests</strong> — checks that keep the code honest.</li>
+    <li><strong>48 automated tests</strong> — checks that keep the code honest.</li>
   </ul>
-  <div class="note"><strong>Where we actually stand today:</strong> 4 weaknesses found → 6 routes to
-  the database → 3 confirmed real by execution (and 3 partial). The fix engine already ranks fixes:
-  removing the exposed SSH key blocks all 6 routes, the sudo rule blocks 4, and so on. The one part
+  <div class="note"><strong>Where we actually stand today:</strong> 4 weaknesses found → 2 routes to
+  the database → 1 confirmed real by execution (and 1 partial). The fix engine already ranks fixes:
+  removing the exposed SSH key blocks both routes, the setuid fix blocks 1, and so on. The one part
   that does <em>not</em> exist yet is the AI scorer — that is 8th-sem work.</div>
 </section>
 
@@ -174,14 +174,18 @@
       <span class="how">Reset the lab to a clean state, run the whole pipeline (scan → find routes →
       prove each one), and let it write the results file (<code>outcomes.jsonl</code>). That file is
       empty today, so right now we have <em>no</em> saved, citable numbers. One clean run gives us our
-      real headline: "6 routes found, 3 proven real." Then run it a second time and check we get the
+      real headline: "2 routes found, 1 proven real." Then run it a second time and check we get the
       same answer — a number a reviewer can trust is one that repeats.</span></li>
     <li><b>Prove the fix works — the before/after loop.</b>
-      <span class="how">Count the routes to the database (6). Apply the single fix the engine
-      recommends (remove the exposed SSH key). Re-run. Show those routes are now gone (6 → 0). Then
+      <span class="how">Count the routes to the database (2). Apply the single fix the engine
+      recommends (remove the exposed SSH key). Re-run. Show those routes are now gone (2 → 0). Then
       add two honesty checks: a "negative control" (apply a fix that <em>shouldn't</em> matter and show
       routes don't drop) and an "order" check (our cheapest-fix order vs the obvious severity order).
       Wrap it so one command does the whole before→fix→after, live.</span></li>
+    <li><b>Add the exact "best possible" fix check.</b>
+      <span class="how">The fix engine picks fixes the quick (greedy) way today. Add an exact solver
+      that finds the true cheapest fix set, and report how close the greedy pick gets. About a day of
+      work; it is the only new code left in 7th sem.</span></li>
     <li><b>Settle one naming choice.</b>
       <span class="how">Decide how we label the "reused credential" technique — <code>T1550</code> or
       <code>T1078.003</code> — and make the code (<code>scope.yaml</code>), the PDF, and the report all
@@ -189,8 +193,8 @@
       decision once we pick one.</span></li>
     <li><b>Turn the results into simple charts and tables.</b>
       <span class="how">From that one saved run, make four small pictures: routes found vs proven
-      (6 vs 3), before vs after the fix (6 → 0), which fix blocks how many routes (exposed key 6/6,
-      sudo 4/6, …), and our fix-order vs the obvious order. Also a speed number (how fast it finds the
+      (2 vs 1), before vs after the fix (2 → 0), which fix blocks how many routes (exposed key 2/2,
+      setuid 1/2, …), our fix-order vs the obvious order, and greedy vs best-possible. Also a speed number (how fast it finds the
       routes). Each one should be generated from the run, not drawn by hand, so it always matches.</span></li>
     <li><b>Show it and write it up.</b>
       <span class="how">Make the dashboard clearly show the network, the proven routes, and the
@@ -225,7 +229,7 @@
 </main>
 
 <footer>
-  ASCEND — Attack-path Scoring and Chokepoint Evaluation for Network Defence · 7th-sem plan · prepared 15 Oct 2026 · the 10-day work split lives in the separate tracker doc
+  ASCEND — Attack-path Scoring and Chokepoint Evaluation for Network Defence · 7th-sem plan · prepared 15 Oct 2026 · the 10-day work split lives in <a href="ASCEND_7th_Sem_10Day_Status_Sheet.html">ASCEND_7th_Sem_10Day_Status_Sheet.html</a>
 </footer>
 
 </body>

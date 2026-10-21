@@ -66,7 +66,7 @@ The enumerator alone needs **no dependencies at all** — it reads whatever
 fallback there so `python3 enumerator/pathfinder.py` works on a fresh clone.
 
 ```bash
-.venv/bin/python tests/test_pipeline.py   # 23 passed with the lab up
+.venv/bin/python tests/test_pipeline.py   # 29 passed with the lab up
 ```
 
 Without the lab, expect `19 passed, 1 failed, 3 skipped`: three tests need the
@@ -87,13 +87,14 @@ will be asked, and a troubleshooting table.
 | The lab | `lab/` | `web01` (entry) → `app01` → `db01` (crown jewel), two isolated networks |
 | The facts | `environment_graph/facts.json` | **generated** by the collector from the live lab |
 | What was declined | `environment_graph/collection_report.json` | conditions examined and deliberately not reported |
-| The paths | `eval/analysis.json` | 6 escalation paths, each edge tagged with its ATT&CK technique |
+| The paths | `eval/analysis.json` | 2 escalation paths (6 raw orderings, collapsed), each edge tagged with its ATT&CK technique |
 | The fixes | `GET /api/remediation` | greedy weighted set-cover ranking + efficacy curve; the panel shows paths eliminated and how many of them were execution-verified |
 | The dashboard | `dashboard/` | network graph, paths, remediation panel |
 
-**Headline result:** the exposed deploy key is on **6 of 6** paths, so removing
-it alone breaks every route. Patching DirtyPipe breaks only 3 of 6, because
-`db01` has a second way to root; the sudo misconfiguration breaks 4 of 6. That
+**Headline result:** the exposed deploy key is on **2 of 2** paths, so removing
+it alone breaks every route. Patching DirtyPipe breaks only 1 of 2, because
+`db01` has a second way to root; the sudo misconfiguration breaks none, because
+no route needs root on app01. That
 is "fewest fixes, most paths", computed rather than asserted.
 
 Fix *effort* is not modelled yet. `scope.yaml` holds a hand-written cost per fix
@@ -105,24 +106,24 @@ shows *Effort: not modelled (WIP)* instead of presenting that estimate as data.
 ## The two numbers, and why they differ
 
 ```
-Config coverage   6/6 = 1.00   the configuration each technique needs is present
-Precision         3/6 = 0.50   routes confirmed end-to-end by EXECUTING them
+Config coverage   2/2 = 1.00   the configuration each technique needs is present
+Precision         1/2 = 0.50   routes confirmed end-to-end by EXECUTING them
 ```
 
 The verifier exists and runs, so precision is a measured number rather than a
 placeholder. (`GET /api/status` also has a `precision` field reading 100% — that
 one is **config coverage**, kept under its old name. Quote the Verify result.)
 
-**19 of the 22 individual steps across the six routes execute and succeed for
-real**: reading the exposed key, both SSH hops with it, the `sudo tar` escape,
-and the setuid `find` escape that reaches root on the crown jewel.
+**5 of the 6 individual steps across the two routes execute and succeed for
+real**: reading the exposed key, both SSH hops with it, and the setuid `find`
+escape that reaches root on the crown jewel.
 
-Three routes are proven end to end. The other three each finish with the
+One route is proven end to end. The other finishes with the
 DirtyPipe kernel exploit, which cannot run in a container lab because containers
 share the host machine's kernel. A route is only `verified` if *every* step
-verified, so those come back **partial**: not proven, and not disproven either.
-Reporting them as failed would claim the attack does not work, which is a
-different and false statement. Verifying them needs a genuinely vulnerable
+verified, so that one comes back **partial**: not proven, and not disproven either.
+Reporting it as failed would claim the attack does not work, which is a
+different and false statement. Verifying it needs a genuinely vulnerable
 kernel — the three-VM fallback in docs/02 §6.
 
 ## What is real, and what is declared
@@ -150,8 +151,8 @@ Two things are declared, and say so on every item that uses them:
 > depth-first search over the attacker's `(host, privilege)` state space, and
 > the remediation ranking is greedy weighted set-cover where each fix's effect
 > is measured by re-running the enumerator on the patched graph. Then we run the
-> routes: three of six are proven end to end by execution, and the other three
-> stop at a kernel exploit a container cannot run — so we report them as
+> routes: one of the two is proven end to end by execution, and the other
+> stops at a kernel exploit a container cannot run — so we report it as
 > partial, not as proven."
 
 ---
