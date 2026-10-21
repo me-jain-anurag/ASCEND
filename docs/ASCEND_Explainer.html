@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCEND — What we're building, explained</title>
+<style>
+  :root{
+    --dark:#1E293B;      /* slate-800 — headers, nav accents, dark panels */
+    --pink:#2563EB;      /* restrained blue accent (variable name kept) */
+    --pinkTint:#EFF3FB;  /* pale blue-gray tint */
+    --white:#FFFFFF;
+    --offWhite:#F8FAFC;
+    --border:#E2E8F0;
+    --text:#1E293B;
+    --muted:#64748B;
+    --ok:#1f8a54;
+    --okTint:#eafaf1;
+    --maxw:860px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);
+    background:var(--white);
+    line-height:1.6;
+    font-size:17px;
+  }
+  a{color:var(--pink);text-decoration:none;}
+
+  /* ---------- top bar ---------- */
+  header.site{
+    background:var(--dark);
+    color:var(--white);
+    padding:46px 24px 30px;
+  }
+  header.site .inner{max-width:var(--maxw);margin:0 auto;}
+  .eyebrow{
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--pink);font-weight:700;margin-bottom:14px;
+  }
+  header.site h1{
+    margin:0 0 6px;font-size:40px;line-height:1.1;font-weight:800;letter-spacing:-.5px;
+  }
+  header.site h1 .expand{color:var(--muted);font-weight:500;font-size:18px;display:block;margin-top:10px;letter-spacing:0;}
+  header.site p.lede{
+    font-size:19px;color:#d7d8e4;max-width:640px;margin:18px 0 0;
+  }
+  .pinkbar{height:3px;background:var(--pink);width:100%;}
+
+  /* ---------- sticky nav ---------- */
+  nav.toc{
+    position:sticky;top:0;z-index:20;
+    background:rgba(255,255,255,.95);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+    overflow-x:auto;white-space:nowrap;
+    padding:0 12px;
+  }
+  nav.toc .inner{max-width:var(--maxw);margin:0 auto;display:flex;gap:2px;}
+  nav.toc a{
+    color:var(--muted);font-size:13.5px;font-weight:600;
+    padding:13px 12px;border-bottom:2px solid transparent;
+    display:inline-block;
+  }
+  nav.toc a:hover{color:var(--text);}
+  nav.toc a.active{color:var(--text);border-bottom-color:var(--pink);}
+
+  /* ---------- layout ---------- */
+  main{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  section{padding:52px 0 8px;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  .snum{
+    display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--pink);margin-bottom:8px;
+  }
+  h2{font-size:28px;line-height:1.2;margin:0 0 18px;font-weight:800;letter-spacing:-.3px;}
+  h3{font-size:19px;margin:30px 0 10px;font-weight:700;}
+  p{margin:0 0 16px;}
+  .muted{color:var(--muted);}
+  strong{font-weight:700;}
+  .lead{font-size:19px;}
+
+  /* ---------- callouts ---------- */
+  .key{
+    background:var(--pinkTint);
+    border-left:3px solid var(--pink);
+    padding:16px 20px;border-radius:0 8px 8px 0;margin:22px 0;
+  }
+  .key .lbl{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--pink);display:block;margin-bottom:4px;}
+  .note{
+    background:var(--offWhite);border:1px solid var(--border);
+    padding:16px 20px;border-radius:8px;margin:22px 0;font-size:15.5px;
+  }
+  .say{
+    background:var(--dark);color:#e7e8f0;border-radius:10px;padding:20px 24px;margin:24px 0;
+    font-size:17px;
+  }
+  .say .lbl{color:var(--pink);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:8px;}
+  .say em{color:var(--white);font-style:italic;}
+
+  /* ---------- cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:20px 0;}
+  .card{
+    border:1px solid var(--border);border-radius:10px;padding:16px 18px;background:var(--white);
+  }
+  .card h4{margin:0 0 6px;font-size:15.5px;font-weight:700;}
+  .card p{margin:0;font-size:14.5px;color:var(--muted);line-height:1.5;}
+  .card .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--pink);background:var(--pinkTint);padding:2px 8px;border-radius:20px;margin-bottom:8px;letter-spacing:.03em;}
+
+  /* ---------- glossary ---------- */
+  .gloss{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:18px 0;}
+  details.term{border-bottom:1px solid var(--border);}
+  details.term:last-child{border-bottom:none;}
+  details.term summary{
+    cursor:pointer;padding:14px 18px;font-weight:700;font-size:15.5px;list-style:none;
+    display:flex;justify-content:space-between;align-items:center;background:var(--white);
+  }
+  details.term summary::-webkit-details-marker{display:none;}
+  details.term summary:hover{background:var(--offWhite);}
+  details.term summary .plus{color:var(--pink);font-weight:700;font-size:18px;transition:transform .2s;}
+  details.term[open] summary .plus{transform:rotate(45deg);}
+  details.term .body{padding:0 18px 16px;font-size:15px;color:var(--text);}
+  details.term .body .m{color:var(--muted);font-size:14px;}
+
+  /* ---------- table ---------- */
+  .tablewrap{overflow-x:auto;margin:20px 0;border:1px solid var(--border);border-radius:10px;}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:560px;}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{background:var(--dark);color:var(--white);font-weight:600;font-size:13px;letter-spacing:.02em;}
+  tr:nth-child(even) td{background:var(--offWhite);}
+  td code,.mono{font-family:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;background:var(--pinkTint);color:var(--dark);padding:1px 6px;border-radius:5px;}
+
+  /* ---------- steps / pipeline ---------- */
+  .flow{margin:24px 0;}
+  .step{display:flex;gap:16px;padding:14px 0;border-bottom:1px dashed var(--border);}
+  .step:last-child{border-bottom:none;}
+  .step .n{
+    flex:0 0 34px;height:34px;border-radius:50%;background:var(--dark);color:var(--white);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
+  }
+  .step .c h4{margin:2px 0 4px;font-size:16px;}
+  .step .c p{margin:0;font-size:15px;color:var(--muted);}
+
+  /* ---------- attack path diagram ---------- */
+  .path{margin:22px 0;}
+  .hop{
+    display:flex;align-items:flex-start;gap:14px;position:relative;padding-bottom:6px;
+  }
+  .hop .dot{flex:0 0 14px;height:14px;border-radius:50%;background:var(--dark);margin-top:6px;z-index:2;}
+  .hop.start .dot{background:var(--pink);}
+  .hop.end .dot{background:var(--pink);box-shadow:0 0 0 4px var(--pinkTint);}
+  .hop .line{position:absolute;left:6px;top:14px;bottom:-14px;width:2px;background:var(--border);z-index:1;}
+  .hop:last-child .line{display:none;}
+  .hop .hc{padding-bottom:18px;}
+  .hop .hc .host{font-weight:700;font-size:15.5px;}
+  .hop .hc .via{font-size:13.5px;color:var(--muted);margin-top:2px;}
+  .hop .hc .via code{font-family:"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--pink);font-weight:600;}
+
+  /* ---------- phase split ---------- */
+  .phases{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0;}
+  .phase{border:1px solid var(--border);border-radius:10px;padding:18px 20px;}
+  .phase h4{margin:0 0 4px;font-size:16px;}
+  .phase .when{font-size:12.5px;color:var(--pink);font-weight:700;letter-spacing:.04em;margin-bottom:12px;}
+  .phase ul{margin:0;padding-left:18px;font-size:14.5px;color:var(--text);}
+  .phase ul li{margin-bottom:7px;}
+
+  /* ---------- vs grid ---------- */
+  .vs{border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin:14px 0;}
+  .vs h4{margin:0 0 6px;font-size:16px;}
+  .vs p{margin:0;font-size:14.5px;color:var(--muted);}
+
+  footer{background:var(--offWhite);border-top:1px solid var(--border);padding:32px 24px;color:var(--muted);font-size:13.5px;}
+  footer .inner{max-width:var(--maxw);margin:0 auto;}
+
+  @media(max-width:620px){
+    header.site h1{font-size:32px;}
+    .phases{grid-template-columns:1fr;}
+    h2{font-size:24px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site" id="top">
+  <div class="inner">
+    <div class="eyebrow">Final-year project · plain-language guide</div>
+    <h1>ASCEND
+      <span class="expand">Attack-path &nbsp;·&nbsp; Scoring &nbsp;·&nbsp; Chokepoint &nbsp;·&nbsp; Evaluation &nbsp;for&nbsp; Network Defence</span>
+    </h1>
+    <p class="lede">A defensive security tool that finds every way an attacker could climb from a tiny foothold to your most important machine, <strong>proves</strong> which of those ways actually work, and tells you the fewest fixes that shut them down.</p>
+  </div>
+</header>
+<div class="pinkbar"></div>
+
+<nav class="toc" id="toc">
+  <div class="inner">
+    <a href="#what">What it is</a>
+    <a href="#problem">The problem</a>
+    <a href="#idea">The big idea</a>
+    <a href="#words">Key words</a>
+    <a href="#techniques">The 7 moves</a>
+    <a href="#graphs">The 3 graphs</a>
+    <a href="#pipeline">How it runs</a>
+    <a href="#example">An example</a>
+    <a href="#build">How we build it</a>
+    <a href="#lab">The lab</a>
+    <a href="#proof">Proof &amp; scoring</a>
+    <a href="#different">Why it's new</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- 1 -->
+<section id="what">
+  <span class="snum">01 — The one sentence</span>
+  <h2>What is ASCEND?</h2>
+  <p class="lead">Imagine an attacker who has broken into one unimportant machine on a company's network — say a public web server. The real danger isn't that one machine; it's whether they can <em>climb</em> from there, step by step, all the way to the crown jewel: the database full of customer data.</p>
+  <p><strong>ASCEND is a tool that maps out every one of those climbing routes, runs each route for real inside a safe practice network to see which ones genuinely work, and then works out the smallest number of fixes that cut off the most routes.</strong></p>
+  <div class="key">
+    <span class="lbl">Why the name</span>
+    <strong>Ascend</strong> literally means to climb — and that is exactly what an attacker does when they go from a low-privilege account up to full control. Each letter is also a real part of the project: <strong>A</strong>ttack-path, <strong>S</strong>coring, <strong>C</strong>hokepoint, <strong>E</strong>valuation, for <strong>N</strong>etwork <strong>D</strong>efence.
+  </div>
+  <p class="muted">It is a <strong>blue-team</strong> (defender's) tool. The whole point is to help a defender fix things before a real attacker finds them. Everything runs inside an isolated practice lab we build ourselves — never against real systems.</p>
+</section>
+
+<!-- 2 -->
+<section id="problem">
+  <span class="snum">02 — Why this is needed</span>
+  <h2>The gap in today's tools</h2>
+  <p>Companies already have security tools. Three common kinds:</p>
+  <div class="cards">
+    <div class="card"><span class="tag">Tool 1</span><h4>Vulnerability scanners</h4><p>Tools like Nessus or OpenVAS list the weaknesses on each machine and give each one a severity number out of 10 (a "CVSS score").</p></div>
+    <div class="card"><span class="tag">Tool 2</span><h4>Firewalls</h4><p>Decide which network connections are allowed and which are blocked.</p></div>
+    <div class="card"><span class="tag">Tool 3</span><h4>SIEM systems</h4><p>Collect and search security logs so analysts can spot suspicious activity after the fact.</p></div>
+  </div>
+  <p>They all share the same blind spot: <strong>each one looks at a weakness or an alert on its own.</strong> They can tell you machine A has a medium issue and machine B has a low issue — but not that <em>those two issues, plus one reused password, chain together into a single path from the public web server straight to the customer database.</em></p>
+  <h3>Two consequences</h3>
+  <div class="cards">
+    <div class="card"><h4>Severity ≠ real risk</h4><p>A "critical" weakness on a machine no attacker can reach matters less than three "low" weaknesses that together form a working path to your crown jewel. Ranking by severity alone sends teams to fix the wrong things first.</p></div>
+    <div class="card"><h4>Chaining doesn't scale by hand</h4><p>A human <em>could</em> trace how weaknesses combine — but past a handful of machines the number of possible routes explodes. Nobody maps them manually.</p></div>
+  </div>
+  <p class="muted">ASCEND fills exactly this gap, for one focused slice of the problem: privilege escalation and lateral movement on Linux networks.</p>
+</section>
+
+<!-- 3 -->
+<section id="idea">
+  <span class="snum">03 — The core move</span>
+  <h2>The big idea: don't predict — prove</h2>
+  <p>Other research in this area <strong>guesses</strong>: it reads scanner output and <em>reasons</em> that an attack path probably exists, or trains a model to <em>predict</em> risk. The weakness is that a guess can be wrong, and you never find out until a real attacker proves it for you.</p>
+  <div class="say">
+    <span class="lbl">ASCEND's one-line pitch</span>
+    <em>"Prior work predicts. ASCEND proves."</em> A path is only called "verified" when every single step of it was actually executed in the lab and every step worked.
+  </div>
+  <p>So ASCEND doesn't just draw a diagram of possible attacks. It <strong>runs</strong> each proposed attack inside a safe, disposable copy of the network and watches whether it truly succeeds. That gives it something no scanner has: <strong>ground truth</strong> — facts from execution, not scores we invented.</p>
+  <div class="note"><strong>How does it know a step really worked?</strong> Each target machine holds a secret marker — a <strong>canary</strong> — that only a genuinely successful attacker could reach or read. The step counts as a pass only if that canary is captured, not just because a script finished without an error. This stops the system from fooling itself.</div>
+</section>
+
+<!-- 4 -->
+<section id="words">
+  <span class="snum">04 — The vocabulary</span>
+  <h2>The words you'll keep hearing</h2>
+  <p>Everything else in this project is built out of these building blocks. Click any term to expand it.</p>
+  <div class="gloss">
+    <details class="term" open><summary>Privilege escalation <span class="plus">+</span></summary><div class="body">Going from a limited account to a more powerful one — ultimately to <strong>root</strong>, the Linux account that can do anything. This is the "climbing" ASCEND is named after. <span class="m">Example: a normal service account tricks a misconfigured program into running its command as root.</span></div></details>
+    <details class="term"><summary>Lateral movement <span class="plus">+</span></summary><div class="body">Moving <em>sideways</em> from one machine to another — e.g. logging into a second server using a password you stole from the first. Escalation climbs; lateral movement spreads.</div></details>
+    <details class="term"><summary>Foothold &amp; crown jewel <span class="plus">+</span></summary><div class="body">The <strong>foothold</strong> is where the attacker starts — a low-value entry point like a public web server. The <strong>crown jewel</strong> is the thing worth protecting — the database with the sensitive data. ASCEND measures every route from one to the other.</div></details>
+    <details class="term"><summary>MITRE ATT&amp;CK &amp; "techniques" <span class="plus">+</span></summary><div class="body">A free, globally-used catalogue that gives every real attacker behaviour a standard code, like <code>T1068</code>. Using it means our scope is written in a vocabulary every security professional already recognises, instead of words we made up.</div></details>
+    <details class="term"><summary>CVE → CWE → CAPEC → ATT&amp;CK <span class="plus">+</span></summary><div class="body">A chain of four public catalogues, from the specific to the general:<br><strong>CVE</strong> — one specific named vulnerability (e.g. <code>CVE-2021-4034</code>).<br><strong>CWE</strong> — the <em>type</em> of weakness it belongs to (e.g. "improper input validation").<br><strong>CAPEC</strong> — the <em>pattern</em> an attacker uses to abuse that weakness.<br><strong>ATT&amp;CK</strong> — the attacker <em>technique</em> it corresponds to.<br><span class="m">This chain is how ASCEND turns "this machine has CVE-2021-4034" into "this machine is exploitable via technique T1068." It's the backbone of the knowledge graph.</span></div></details>
+    <details class="term"><summary>CVSS score <span class="plus">+</span></summary><div class="body">The standard 0–10 severity number attached to each CVE. ASCEND's central argument is that <strong>CVSS alone is a poor guide to real risk</strong>, because it ignores whether a weakness is actually reachable and chainable.</div></details>
+    <details class="term"><summary>SUID binary <span class="plus">+</span></summary><div class="body">A program flagged to run with the privileges of its <em>owner</em> (often root) rather than whoever launched it. Useful when done right; dangerous when a program that can be made to run arbitrary commands is left SUID — it hands out root. One of our escalation vectors.</div></details>
+    <details class="term"><summary>sudo misconfiguration <span class="plus">+</span></summary><div class="body"><code>sudo</code> lets specific users run specific commands as root. A sloppy rule — e.g. letting a service account run a powerful command with no password — can be abused to become root outright.</div></details>
+    <details class="term"><summary>Docker socket / container escape <span class="plus">+</span></summary><div class="body">A <strong>container</strong> is a lightweight isolated box for running software. If a container can reach the host's "Docker socket," it can control the underlying machine — "escaping" its box. That's a jump from inside the sandbox to owning the host.</div></details>
+    <details class="term"><summary>Credential reuse <span class="plus">+</span></summary><div class="body">The same password or SSH key working on more than one machine. Find it once, and it unlocks the next host for free. This single bad habit is often the edge that joins two separate machines into one long attack path.</div></details>
+    <details class="term"><summary>Chokepoint <span class="plus">+</span></summary><div class="body"><strong>The heart of ASCEND.</strong> A weakness that many different attack paths all pass through. Fix one chokepoint and you break many paths at once — so chokepoints are the highest-value things to fix. Finding the fewest chokepoints that kill the most paths is the project's signature output.</div></details>
+    <details class="term"><summary>Precision (the headline number) <span class="plus">+</span></summary><div class="body">Of all the paths ASCEND <em>proposed</em>, what fraction actually <em>worked</em> when executed. It's how we grade the path-finder honestly — a proposed path that fails in the lab counts against us.</div></details>
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="techniques">
+  <span class="snum">05 — The scope, locked</span>
+  <h2>The seven attacker moves we study</h2>
+  <p>A final-year project dies if it tries to do everything. ASCEND is deliberately narrow: <strong>privilege escalation and the lateral movement that supports it, on Linux, inside our own lab.</strong> These are the exact ATT&amp;CK techniques in scope — and no others.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Code</th><th>Plain-English move</th><th>How it shows up in our lab</th></tr></thead>
+      <tbody>
+        <tr><td><code>T1548.001</code></td><td>Abuse a program that runs as root to run your own command as root</td><td>A misconfigured SUID binary</td></tr>
+        <tr><td><code>T1548.003</code></td><td>Abuse an over-permissive <code>sudo</code> rule</td><td>A no-password sudo rule on a dangerous command</td></tr>
+        <tr><td><code>T1068</code></td><td>Use a kernel bug to jump to root</td><td><strong>PwnKit</strong> (CVE-2021-4034) &amp; <strong>DirtyPipe</strong> (CVE-2022-0847)</td></tr>
+        <tr><td><code>T1611</code></td><td>Break out of a container to control the host machine</td><td>An exposed Docker socket</td></tr>
+        <tr><td><code>T1021.004</code></td><td>Log into another machine over SSH (move sideways)</td><td>Using a harvested key to reach the next host</td></tr>
+        <tr><td><code>T1550</code></td><td>Reuse a stolen credential or key somewhere else</td><td>The same key works on a second machine</td></tr>
+        <tr><td><code>T1552.001</code></td><td>Find a password or key left in a readable file</td><td>A key or secret in a world-readable file</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>The two anchor vulnerabilities</h3>
+  <p>For the "kernel bug" move we anchor on two real, famous, well-documented vulnerabilities: <strong>PwnKit</strong> (a flaw in the <code>pkexec</code> tool) and <strong>DirtyPipe</strong> (a flaw in the Linux kernel's pipe handling). Both map cleanly to technique T1068, so the link to ATT&amp;CK is real, not asserted. Neither runs in today's 3-container lab yet: DirtyPipe needs a genuinely vulnerable kernel (real VMs), and the PwnKit host is on the roadmap. Until then the lab reports the kernel step as <em>not executable</em> rather than faking it.</p>
+  <div class="note"><strong>Explicitly out of scope</strong> (and we say so proactively): Windows &amp; Active Directory, malware / phishing / denial-of-service, and anything run against real production systems. We use one web exploit only as the attacker's front door — we don't study web attacks themselves.</div>
+  <div class="say">
+    <span class="lbl">The sentence to say at the review</span>
+    <em>"ASCEND does not detect all attacks. It answers one question well: given a foothold, what are all the ways an attacker escalates to our critical assets, which of them actually work, and what is the cheapest way to break them?"</em>
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="graphs">
+  <span class="snum">06 — The mental model</span>
+  <h2>Three graphs, not one</h2>
+  <p>ASCEND thinks about the world as three separate maps. Keeping them separate is what makes the whole system clear.</p>
+  <div class="cards">
+    <div class="card"><span class="tag">Map 1 · public</span><h4>Knowledge graph</h4><p>Everything publicly known about vulnerabilities and attacker techniques — the CVE→CWE→CAPEC→ATT&amp;CK chain plus description text. It's the same for everyone and rarely changes.</p></div>
+    <div class="card"><span class="tag">Map 2 · our lab</span><h4>Environment graph</h4><p>A map of <em>our specific network</em>: which machines exist, what accounts and credentials they hold, which machine can reach which, and what weaknesses each one has.</p></div>
+    <div class="card"><span class="tag">Map 3 · the routes</span><h4>Attack-path graph</h4><p>The routes an attacker can actually take through the environment, built by searching the environment graph from the foothold to the crown jewel.</p></div>
+  </div>
+  <div class="key">
+    <span class="lbl">The link that makes it work</span>
+    Every weakness in <strong>Map 2</strong> is connected to a technique in <strong>Map 1</strong>. That single link is what upgrades a dry fact — "this host runs a vulnerable version of pkexec" — into a meaningful one: "this host is exploitable via technique T1068, and here's the public evidence why."
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="pipeline">
+  <span class="snum">07 — End to end</span>
+  <h2>How ASCEND runs, step by step</h2>
+  <p>Read top to bottom — this is the whole system in order.</p>
+  <div class="flow">
+    <div class="step"><div class="n">1</div><div class="c"><h4>Collect the facts</h4><p>Read-only probes inspect each lab machine — its users, sudo rules, SUID programs, kernel version, open ports and stored credentials — and write them down as structured facts.</p></div></div>
+    <div class="step"><div class="n">2</div><div class="c"><h4>Build the environment graph</h4><p>Those facts become Map 2, with every weakness linked to its ATT&amp;CK technique in the public knowledge graph (Map 1).</p></div></div>
+    <div class="step"><div class="n">3</div><div class="c"><h4>Enumerate the paths</h4><p>A search algorithm starts at the foothold holding a growing set of machines, privileges and stolen credentials, and finds every route that reaches the crown jewel — with caps so it can't run forever, and duplicate routes collapsed.</p></div></div>
+    <div class="step"><div class="n">4</div><div class="c"><h4>Verify by execution</h4><p>The attacker container actually <em>runs</em> each step in the lab. The per-host canary confirms real success or failure, with a recorded reason. This produces the headline <strong>precision</strong> number and a labelled record of what truly works.</p></div></div>
+    <div class="step"><div class="n">5</div><div class="c"><h4>Score exploitability (ML)</h4><p>A machine-learning model learns to predict whether a step would succeed <em>without</em> running it — so the method can later assess a real network read-only. It must beat simple baselines or it gets dropped and we say so.</p></div></div>
+    <div class="step"><div class="n">6</div><div class="c"><h4>Find the chokepoints</h4><p>The remediation engine computes the smallest, cheapest set of fixes that breaks the most paths — using a fast greedy method today. An exact optimal solver is planned, so we can measure how close the greedy one gets.</p></div></div>
+    <div class="step"><div class="n">7</div><div class="c"><h4>Prove the fix works</h4><p>Apply a recommended fix in the real lab, re-run the whole thing, and confirm the paths through that weakness have vanished. Repeat until the crown jewel is unreachable.</p></div></div>
+  </div>
+  <div class="key"><span class="lbl">The clinching moment</span>Step 7 is the strongest thing to show a panel: the result is <strong>demonstrated, not claimed.</strong> You watch real attack paths disappear after a real fix.</div>
+</section>
+
+<!-- 8 -->
+<section id="example">
+  <span class="snum">08 — Made concrete</span>
+  <h2>One real attack path</h2>
+  <p>Here's a single route the enumerator would output in the current lab — foothold at the top, crown jewel at the bottom. Each arrow is a technique ASCEND can actually execute to confirm the step.</p>
+  <div class="path">
+    <div class="hop start"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">web01 — account <span class="mono">www-data</span> (low privilege)</div><div class="via">the attacker's starting foothold</div></div></div>
+    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">finds a reusable SSH key</div><div class="via"><code>T1552.001</code> — reads a key left in a world-readable file</div></div></div>
+    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">app01 — account <span class="mono">appuser</span></div><div class="via"><code>T1021.004 + T1550</code> — logs in over SSH reusing that key</div></div></div>
+    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">app01 — now <span class="mono">root</span></div><div class="via"><code>T1548.003</code> — abuses a sudo misconfiguration to become root</div></div></div>
+    <div class="hop"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">db01 — account <span class="mono">dbuser</span></div><div class="via"><code>T1021.004</code> — reaches the database host over SSH</div></div></div>
+    <div class="hop end"><div class="dot"></div><div class="line"></div><div class="hc"><div class="host">db01 — <span class="mono">root</span> · CROWN JEWEL COMPROMISED</div><div class="via"><code>T1068</code> — a kernel exploit takes full control</div></div></div>
+  </div>
+  <div class="key"><span class="lbl">Where the chokepoint lives</span>Notice the reused SSH key near the top. <strong>Remove that one key</strong> and every path that depended on it dies at once — that's exactly the kind of high-value fix the chokepoint engine is built to find.</div>
+</section>
+
+<!-- 9 -->
+<section id="build">
+  <span class="snum">09 — The plan</span>
+  <h2>How we actually build it</h2>
+  <p>The work splits into two phases. Phase 1 is the foundation and the real contribution; Phase 2 adds the machine learning and the remediation proof on top.</p>
+  <div class="phases">
+    <div class="phase">
+      <h4>Phase 1 — Foundation</h4>
+      <div class="when">Build target: ~mid-January 2027</div>
+      <ul>
+        <li>The isolated lab that rebuilds and resets in seconds</li>
+        <li>Read-only fact collectors (one record per host)</li>
+        <li>The public knowledge graph (CVE→CWE→CAPEC→ATT&amp;CK)</li>
+        <li>The environment graph + the path enumerator</li>
+        <li>The execution verifier and its labelled dataset — <em>the core contribution</em></li>
+        <li>A basic dashboard to show it all</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <h4>Phase 2 — Scoring &amp; remediation</h4>
+      <div class="when">Through to June 2027</div>
+      <ul>
+        <li>The exploitability scorer (simple models first, fancy ones only if they earn it)</li>
+        <li>The chokepoint engine (greedy built; exact optimal planned)</li>
+        <li>The before/after <strong>proof loop</strong> — the signature result</li>
+        <li>Assessment mode: read-only scan of a real host (stretch goal)</li>
+        <li>The scripted demo and the research paper</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note"><strong>The code maps 1:1 to this plan.</strong> Each piece is already a folder in the repo: <span class="mono">collectors/</span>, <span class="mono">knowledge_graph/</span>, <span class="mono">environment_graph/</span>, <span class="mono">enumerator/</span>, <span class="mono">verifier/</span>, <span class="mono">chokepoint/</span>, <span class="mono">service/</span> (the API) and <span class="mono">dashboard/</span> (the web app). Three people own three workstreams: the lab &amp; ground truth, the graphs &amp; ML, and the app &amp; integration.</div>
+</section>
+
+<!-- 10 -->
+<section id="lab">
+  <span class="snum">10 — Where it all happens, safely</span>
+  <h2>The lab</h2>
+  <p>Everything attack-related happens inside a self-contained practice network of <strong>Docker containers</strong> on a private connection with <strong>no route to the internet or the campus network</strong> — except one read-only download of public vulnerability data. Containers are used because they reset in seconds, and building the training dataset needs hundreds of reset-and-run cycles.</p>
+  <h3>What it looks like today vs. the roadmap</h3>
+  <div class="phases">
+    <div class="phase">
+      <h4>Today (in code)</h4>
+      <div class="when">3-host container lab</div>
+      <ul>
+        <li><strong>web01</strong> — entry foothold, low privilege</li>
+        <li><strong>app01</strong> — sudo + SUID escape, mid-value</li>
+        <li><strong>db01</strong> — the crown jewel (root, highest value)</li>
+        <li>Currently finds 6 paths; 3 verify (precision ≈ 0.5)</li>
+      </ul>
+    </div>
+    <div class="phase">
+      <h4>Roadmap target</h4>
+      <div class="when">10 hosts incl. 2 real VMs</div>
+      <ul>
+        <li>Extra hosts: a CI box (Docker-socket escape), an NFS box, an admin jump host, a second app host</li>
+        <li>Two full virtual machines so a <em>real</em> kernel exploit can run (containers share a kernel, so some kernel bugs can't be run for real in them)</li>
+        <li>Enables the 30+ lab variants needed to train the ML model properly</li>
+      </ul>
+    </div>
+  </div>
+  <div class="key"><span class="lbl">Safety, stated plainly</span>Attack scripts run only from the attacker host and live only inside the lab folder. <strong>No exploit code is ever shipped in the repository.</strong> The only outside access is that single, one-time, read-only pull of public vulnerability data. This is legitimate academic defensive-security research.</div>
+</section>
+
+<!-- 11 -->
+<section id="proof">
+  <span class="snum">11 — Grading ourselves honestly</span>
+  <h2>Proof &amp; scoring — how we know it worked</h2>
+  <p>A good project is measured, not asserted. ASCEND reports real numbers against real baselines:</p>
+  <div class="cards">
+    <div class="card"><h4>Path-finder</h4><p>Precision and recall — of the paths we proposed, how many work; of the paths that exist, how many we found.</p></div>
+    <div class="card"><h4>Speed</h4><p>How long enumeration takes (target: 95% of runs under 5 seconds).</p></div>
+    <div class="card"><h4>Verifier reliability</h4><p>How often a result flips between runs — goal: zero flakiness.</p></div>
+    <div class="card"><h4>ML scorer</h4><p>Accuracy and F1 on machines it never trained on — and it must beat three dumb baselines (always-guess-yes, "CVSS ≥ 7", and the scanner's own flag) or it's cut.</p></div>
+    <div class="card"><h4>Remediation</h4><p>How few fixes break the crown-jewel path, and how that compares to fixing in plain CVSS order or random order.</p></div>
+    <div class="card"><h4>Reproducibility</h4><p>Every table and figure is generated by a script from versioned settings with recorded random seeds.</p></div>
+  </div>
+  <div class="note"><strong>Why "beat the baselines" matters.</strong> Any model can produce a number. The honest question is whether it beats the obvious shortcuts. If the ML scorer can't beat "just trust CVSS," we drop it and say so — because ASCEND's headline is execution-verified truth, not a model's self-reported accuracy.</div>
+</section>
+
+<!-- 12 -->
+<section id="different">
+  <span class="snum">12 — The "isn't this just X?" defence</span>
+  <h2>What's actually new here</h2>
+  <p>A review panel will ask how this differs from what already exists. The honest, narrow answer:</p>
+  <div class="vs"><h4>vs. BloodHound</h4><p>BloodHound maps attack paths in <strong>Windows Active Directory</strong>; ASCEND targets <strong>Linux</strong> privilege escalation — a different, less-tooled domain. BloodHound also only <em>shows</em> paths; it doesn't <em>verify</em> them by execution or compute an optimal fix set. ASCEND adds both.</p></div>
+  <div class="vs"><h4>vs. logical attack-graph tools (e.g. MulVAL)</h4><p>These reason logically from scanner output to a graph of <em>possible</em> attacks, but generally don't execute them to confirm, and don't learn which weaknesses are truly exploitable. ASCEND's execution-grounded proof and learned scoring are the difference.</p></div>
+  <div class="vs"><h4>vs. the base research papers</h4><p>We borrow good ideas — attaching vulnerability description text to graph nodes, and correlating evidence against a graph — but add what neither has: <strong>execution-verified ground truth</strong> for privilege-escalation paths plus a <strong>remediation-optimisation</strong> output.</p></div>
+  <div class="say"><span class="lbl">The claim, kept modest on purpose</span><em>"We don't claim novelty over the whole field. We claim one specific, defensible combination: prove the paths by running them, then compute the fewest fixes that kill the most of them — and prove the fixes work."</em></div>
+</section>
+
+</main>
+
+<footer>
+  <div class="inner">
+    <p><strong>ASCEND</strong> — Attack-path Scoring and Chokepoint Evaluation for Network Defence · DSCE / ISE final-year project · Aug 2026 – June 2027.</p>
+    <p>This is a plain-language guide to the full plan. The authoritative documents are <span class="mono">docs/ASCEND_Plan_of_Record.md</span> and <span class="mono">docs/00</span>–<span class="mono">09</span> in the repo. Where this guide and the detailed docs differ, the detailed docs win.</p>
+  </div>
+</footer>
+
+<script>
+  // highlight the current section in the sticky nav
+  (function(){
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var map = {};
+    links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+    var sections = Array.prototype.slice.call(document.querySelectorAll('main section'));
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          links.forEach(function(l){ l.classList.remove('active'); });
+          var a = map[e.target.id];
+          if(a){ a.classList.add('active'); a.scrollIntoView({block:'nearest',inline:'nearest'}); }
+        }
+      });
+    }, {rootMargin:'-45% 0px -50% 0px', threshold:0});
+    sections.forEach(function(s){ obs.observe(s); });
+  })();
+</script>
+</body>
+</html>

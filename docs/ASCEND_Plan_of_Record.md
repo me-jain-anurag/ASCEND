@@ -2,7 +2,7 @@
 
 > **Status:** Authoritative. This document supersedes the earlier **Sentinel**
 > plan, now archived in `docs/legacy/`. The full ASCEND document set lives in
-> `docs/00`–`docs/09`; this file is the consolidated, code-reconciled overview of it.
+> `docs/00`–`docs/08`; this file is the consolidated, code-reconciled overview of it.
 > It is **ASCEND** — the project described in the attached ASCEND PDF — reconciled
 > against what the repository code actually does today. Where the PDF and the code
 > differ, the code wins and the gap is called out in §10.
@@ -171,7 +171,7 @@ read-only pull of public vulnerability data.
    `not_executable` and must not be reported as a verified pass. PwnKit (pkexec package
    version) is the more lab-executable T1068 anchor in the current container setup.
 4. **Sentinel archive — done.** The old `Sentinel_Implementation_Plan_v2.pdf` and
-   `Sentinel_Synopsis.docx` are archived in `docs/legacy/`. `docs/00`–`docs/09` are the
+   `Sentinel_Synopsis.docx` are archived in `docs/legacy/`. `docs/00`–`docs/08` are the
    current ASCEND document set and stay in place — they are *not* Sentinel docs.
 
 ## 11. What was kept from Sentinel / what was dropped
