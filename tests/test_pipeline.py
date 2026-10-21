@@ -26,7 +26,9 @@ sys.path.insert(0, str(ROOT / "enumerator"))
 
 import yaml                                              # noqa: E402
 import derive                                            # noqa: E402
-from pathfinder import enumerate_paths, path_precision    # noqa: E402
+from pathfinder import (                                 # noqa: E402
+    enumerate_paths, path_precision, search, time_search,
+)
 from chokepoint.engine import (                          # noqa: E402
     build_remediation, apply_fix_ids, eliminated_path_ids,
     known_fix_ids, baseline_path_ids,
@@ -168,6 +170,65 @@ def test_precision_separates_config_coverage_from_execution():
     assert metrics["verification_status"] == "none"
 
 
+def test_search_reports_what_it_left_out():
+    facts, _ = _facts_from_capture()
+    paths, stats = search(facts)
+    assert stats["enumerated"] == 6       # raw orderings, before collapsing
+    assert len(paths) == 2
+    assert stats["cut_at_depth"] == 0
+    assert stats["hit_path_cap"] is False
+
+
+def test_path_cap_stops_the_search_and_says_so():
+    facts, _ = _facts_from_capture()
+    paths, stats = search(facts, max_paths=2, collapse="none")
+    assert len(paths) == 2
+    assert stats["hit_path_cap"] is True
+
+
+def test_depth_cap_counts_the_branches_it_cuts():
+    facts, _ = _facts_from_capture()
+    paths, stats = search(facts, max_depth=3)
+    assert paths == []                    # every route needs at least 4 steps
+    assert stats["cut_at_depth"] > 0
+
+
+def test_collapse_merges_reorderings_then_drops_unneeded_steps():
+    """The 3-host lab yields 6 raw paths. Two pairs are the same steps in a
+    different order, and the remaining extra paths carry a sudo step on app01
+    that the route to db01 never uses. Only the two genuine routes (SUID and
+    DirtyPipe on db01) are minimal."""
+    facts, _ = _facts_from_capture()
+    raw = enumerate_paths(facts, collapse="none")
+    assert enumerate_paths(facts) == search(facts, collapse="minimal")[0]
+    reorder, r_stats = search(facts, collapse="reorder")
+    minimal, m_stats = search(facts, collapse="minimal")
+    assert len(raw) == 6
+    assert len(reorder) == 4 and r_stats["merged_reorder"] == 2
+    assert len(minimal) == 2 and m_stats["dropped_extra"] == 2
+    assert all(p in raw for p in minimal)
+    assert {p[-1]["vector_id"] for p in minimal} == {
+        "v_db01_suid_find", "v_db01_kernel_cve_2022_0847"}
+    assert not any(s.get("vector_id") == "v_app01_sudo_tar" for p in minimal for s in p)
+
+
+def test_unknown_collapse_mode_is_rejected():
+    facts, _ = _facts_from_capture()
+    try:
+        search(facts, collapse="dedupe")
+    except ValueError:
+        return
+    raise AssertionError("an unknown collapse mode was accepted")
+
+
+def test_search_timing_is_reported_in_milliseconds():
+    facts, _ = _facts_from_capture()
+    timing = time_search(facts, runs=10)
+    assert timing["runs"] == 10
+    assert 0 < timing["p50_ms"] <= timing["p95_ms"] <= timing["p99_ms"]
+    assert timing["p95_ms"] < 5000        # plan target: p95 under 5 s
+
+
 # ─── Chokepoint engine ────────────────────────────────────────────────────────
 
 def test_chokepoint_ranks_the_reused_key_first():
@@ -200,22 +261,22 @@ def test_efficacy_curve_is_monotonic_and_starts_at_zero():
 def test_applying_a_fix_actually_removes_the_paths():
     """Elimination must be re-enumeration, not list filtering."""
     facts, _ = _facts_from_capture()
-    sudo_fix = next(f for f in build_remediation(facts, SCOPE)["ranked_fixes"]
-                    if f["target_vector"] == "v_app01_sudo_tar")
+    suid_fix = next(f for f in build_remediation(facts, SCOPE)["ranked_fixes"]
+                    if f["target_vector"] == "v_db01_suid_find")
 
     baseline = enumerate_paths(facts)
-    patched = apply_fix_ids(facts, SCOPE, [sudo_fix["fix_id"]])
+    patched = apply_fix_ids(facts, SCOPE, [suid_fix["fix_id"]])
     survivors = enumerate_paths(patched)
 
     # Removing a vector can only remove paths, never create them, and no
     # survivor may still rely on the vector that was removed.
     assert 0 < len(survivors) < len(baseline)
-    assert all("v_app01_sudo_tar" not in [s.get("vector_id") for s in path]
+    assert all("v_db01_suid_find" not in [s.get("vector_id") for s in path]
                for path in survivors)
 
-    eliminated = eliminated_path_ids(facts, SCOPE, [sudo_fix["fix_id"]])
+    eliminated = eliminated_path_ids(facts, SCOPE, [suid_fix["fix_id"]])
     assert len(eliminated) == len(baseline) - len(survivors)
-    assert set(eliminated) == set(sudo_fix["paths_eliminated"])
+    assert set(eliminated) == set(suid_fix["paths_eliminated"])
 
 
 def test_fix_ids_resolve_and_path_ids_are_stable():
@@ -228,12 +289,12 @@ def test_fix_ids_resolve_and_path_ids_are_stable():
     assert set(baseline.values()) == expected
     # A surviving path must keep its baseline id, never be renumbered into the
     # id of a path that was just eliminated.
-    sudo_fix = next(f for f in build_remediation(facts, SCOPE)["ranked_fixes"]
-                    if f["target_vector"] == "v_app01_sudo_tar")
-    eliminated = set(eliminated_path_ids(facts, SCOPE, [sudo_fix["fix_id"]]))
+    suid_fix = next(f for f in build_remediation(facts, SCOPE)["ranked_fixes"]
+                    if f["target_vector"] == "v_db01_suid_find")
+    eliminated = set(eliminated_path_ids(facts, SCOPE, [suid_fix["fix_id"]]))
     from chokepoint.engine import path_signature
     survivors = {baseline[path_signature(p)]
-                 for p in enumerate_paths(apply_fix_ids(facts, SCOPE, [sudo_fix["fix_id"]]))}
+                 for p in enumerate_paths(apply_fix_ids(facts, SCOPE, [suid_fix["fix_id"]]))}
     assert not (survivors & eliminated)
 
 

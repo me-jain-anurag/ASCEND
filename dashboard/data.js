@@ -86,13 +86,6 @@ window.ASCEND_DATA = {
         "credential": "app_deploy_key"
       },
       {
-        "from": "app01:low",
-        "to": "app01:root",
-        "technique": "T1548.003",
-        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
-        "vector_id": "v_app01_sudo_tar"
-      },
-      {
         "from": "db01:low",
         "to": "db01:root",
         "technique": "T1548.001",
@@ -118,155 +111,6 @@ window.ASCEND_DATA = {
       },
       {
         "from": "app01:low",
-        "to": "db01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "app01:low",
-        "to": "app01:root",
-        "technique": "T1548.003",
-        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
-        "vector_id": "v_app01_sudo_tar"
-      },
-      {
-        "from": "db01:low",
-        "to": "db01:root",
-        "technique": "T1068",
-        "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
-        "vector_id": "v_db01_kernel_cve_2022_0847"
-      }
-    ],
-    [
-      {
-        "from": "web01:low",
-        "to": "cred:app_deploy_key",
-        "technique": "T1552.001",
-        "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_credfile_id_rsa"
-      },
-      {
-        "from": "web01:low",
-        "to": "app01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "app01:low",
-        "to": "db01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "db01:low",
-        "to": "db01:root",
-        "technique": "T1548.001",
-        "technique_name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
-        "vector_id": "v_db01_suid_find"
-      }
-    ],
-    [
-      {
-        "from": "web01:low",
-        "to": "cred:app_deploy_key",
-        "technique": "T1552.001",
-        "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_credfile_id_rsa"
-      },
-      {
-        "from": "web01:low",
-        "to": "app01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "app01:low",
-        "to": "db01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "db01:low",
-        "to": "db01:root",
-        "technique": "T1068",
-        "technique_name": "Exploitation for Privilege Escalation (DirtyPipe)",
-        "vector_id": "v_db01_kernel_cve_2022_0847"
-      }
-    ],
-    [
-      {
-        "from": "web01:low",
-        "to": "cred:app_deploy_key",
-        "technique": "T1552.001",
-        "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_credfile_id_rsa"
-      },
-      {
-        "from": "web01:low",
-        "to": "app01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "app01:low",
-        "to": "app01:root",
-        "technique": "T1548.003",
-        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
-        "vector_id": "v_app01_sudo_tar"
-      },
-      {
-        "from": "app01:root",
-        "to": "db01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "db01:low",
-        "to": "db01:root",
-        "technique": "T1548.001",
-        "technique_name": "Abuse Elevation Control Mechanism: Setuid and Setgid",
-        "vector_id": "v_db01_suid_find"
-      }
-    ],
-    [
-      {
-        "from": "web01:low",
-        "to": "cred:app_deploy_key",
-        "technique": "T1552.001",
-        "technique_name": "Unsecured Credentials in Files",
-        "vector_id": "v_web01_credfile_id_rsa"
-      },
-      {
-        "from": "web01:low",
-        "to": "app01:low",
-        "technique": "T1021.004+T1550",
-        "technique_name": "Remote Services: SSH (reused credential)",
-        "vector_id": null,
-        "credential": "app_deploy_key"
-      },
-      {
-        "from": "app01:low",
-        "to": "app01:root",
-        "technique": "T1548.003",
-        "technique_name": "Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
-        "vector_id": "v_app01_sudo_tar"
-      },
-      {
-        "from": "app01:root",
         "to": "db01:low",
         "technique": "T1021.004+T1550",
         "technique_name": "Remote Services: SSH (reused credential)",
@@ -285,39 +129,50 @@ window.ASCEND_DATA = {
   "chokepoints": [
     {
       "vector_id": "v_web01_credfile_id_rsa",
-      "on_paths": 6,
-      "total_paths": 6,
-      "paths_eliminated_if_fixed": 6,
+      "on_paths": 2,
+      "total_paths": 2,
+      "paths_eliminated_if_fixed": 2,
       "technique": "T1552.001 \u2014 Unsecured Credentials in Files"
     },
     {
-      "vector_id": "v_app01_sudo_tar",
-      "on_paths": 4,
-      "total_paths": 6,
-      "paths_eliminated_if_fixed": 4,
-      "technique": "T1548.003 \u2014 Abuse Elevation Control Mechanism: Sudo and Sudo Caching"
-    },
-    {
       "vector_id": "v_db01_suid_find",
-      "on_paths": 3,
-      "total_paths": 6,
-      "paths_eliminated_if_fixed": 3,
+      "on_paths": 1,
+      "total_paths": 2,
+      "paths_eliminated_if_fixed": 1,
       "technique": "T1548.001 \u2014 Abuse Elevation Control Mechanism: Setuid and Setgid"
     },
     {
       "vector_id": "v_db01_kernel_cve_2022_0847",
-      "on_paths": 3,
-      "total_paths": 6,
-      "paths_eliminated_if_fixed": 3,
+      "on_paths": 1,
+      "total_paths": 2,
+      "paths_eliminated_if_fixed": 1,
       "technique": "T1068 \u2014 Exploitation for Privilege Escalation (DirtyPipe)"
     }
   ],
   "path_finder": {
-    "proposed": 6,
+    "proposed": 2,
     "verified": 0,
     "precision": 0.0,
-    "config_covered": 6,
+    "config_covered": 2,
     "config_coverage": 1.0,
     "verification_status": "none"
+  },
+  "search": {
+    "max_depth": 12,
+    "max_paths": 1000,
+    "collapse": "minimal",
+    "cut_at_depth": 0,
+    "hit_path_cap": false,
+    "enumerated": 6,
+    "merged_reorder": 2,
+    "dropped_extra": 2,
+    "raw_orderings": 6,
+    "after_reorder_merge": 4
+  },
+  "timing": {
+    "runs": 50,
+    "p50_ms": 0.025,
+    "p95_ms": 0.031,
+    "p99_ms": 0.198
   }
 };

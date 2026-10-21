@@ -56,27 +56,57 @@ From the current lab:
 web01:low  --[T1552.001]-->        cred:app_deploy_key    harvest the readable key
 web01:low  --[T1021.004+T1550]-->  app01:low              the key opens app01
 app01:low  --[T1021.004+T1550]-->  db01:low               the SAME key opens db01
-app01:low  --[T1548.003]-->        app01:root             sudo tar spawns a root shell
 db01:low   --[T1548.001]-->        db01:root              setuid find
 ```
 
 db01 can be rooted two ways — the setuid binary above, or the DirtyPipe kernel
-exploit — which is why the lab yields six routes rather than three.
+exploit — which is why the lab yields two routes.
 
-Note steps 3 and 4: the attacker reaches `db01` *before* taking root on `app01`.
-That ordering is a genuinely distinct path, and it is why the lab yields three
-paths rather than one. It also explains why removing the sudo rule kills two of
-the three and not all of them — one route never needed `app01:root` at all.
+The raw search finds six orderings. Four of them also take root on `app01` with
+the `sudo tar` escape, which the route to `db01` never needs, and two pairs are
+the same steps in a different order. Collapsing those (below) leaves the two
+routes above. It is also why removing the sudo rule eliminates no route at all.
 
 ---
 
 ## Why depth-first, and why it terminates
 
-`enumerate_paths()` is a recursive DFS with two guards:
+`enumerate_paths()` is a recursive DFS with three guards:
 
 - **Visited-state pruning.** A state already seen on the current trail is not
   re-entered. Since states only grow, this rules out cycles outright.
 - **`max_depth=12`.** A backstop for pathological inputs, not a design limit.
+- **`max_paths=1000`.** Stops the search once that many paths are found, so a
+  larger lab cannot run away.
+
+`search()` returns the same paths plus a `stats` dict saying what the guards
+left out: `cut_at_depth` (branches abandoned at the depth cap) and
+`hit_path_cap` (if true, more paths may exist). A path count is only
+trustworthy next to these.
+
+## Collapsing equivalent paths
+
+The DFS returns every *ordering* of the attacker's moves, so the raw count
+overstates the number of distinct routes. `collapse=` controls this:
+
+| Mode | Keeps | 3-host lab |
+|---|---|---|
+| `"minimal"` (default) | merges reorderings, and drops a path when another found path does the same with a subset of its steps | **2** |
+| `"reorder"` | one path per set of steps; drops the same steps in a different order | **4** |
+| `"none"` | every raw ordering the search found | **6** |
+
+Two paths are the same step if they reach the same `to` with the same
+technique, vector and credential; a lateral move's `from` label is ignored. In
+the current lab, four of the six raw paths include the sudo escalation on
+app01, which the route to db01 never uses. The two minimal routes are the SUID
+`find` and the DirtyPipe kernel step on db01, and those are what every report
+and the dashboard count.
+
+## Speed
+
+`time_search(facts, runs=50)` times the search alone and returns p50/p95/p99 in
+milliseconds (plan target: p95 under 5 s). Verification time is reported
+separately by `verifier/`. On the 3-host lab p95 is well under 1 ms.
 
 Enumerating *every* path is exponential in the worst case; that is inherent to
 the question, not a flaw in the implementation. It is tractable here because the
@@ -92,14 +122,13 @@ number:
 
 | Metric | Meaning | Current |
 |---|---|---|
-| `config_coverage` | every vector on the path has the configuration its technique needs | **6/6** |
-| `precision` | the path was confirmed **by executing it** | **3/6** |
+| `config_coverage` | every vector on the path has the configuration its technique needs | **2/2** |
+| `precision` | the path was confirmed **by executing it** | **1/2** |
 
 Config coverage is what reading a machine can establish: *the door is unlocked*.
 Precision requires *we walked through it*, which only `verifier/` can determine.
-It sits at 3 of 6 because the three routes ending on the DirtyPipe kernel exploit
-cannot be executed in a container lab — those are reported partial rather than
-failed. Vectors carry `verified_exploitable: null` and `config_exploitable: true`
+It sits at 1 of 2 because the route ending on the DirtyPipe kernel exploit cannot
+be executed in a container lab — it is reported partial rather than failed. Vectors carry `verified_exploitable: null` and `config_exploitable: true`
 to keep the two claims apart.
 
 ---
@@ -130,6 +159,8 @@ scoring. A path is found from reachability, credentials and vectors alone.
 | `paths` | list of paths; each a list of steps `{from, to, technique, technique_name, vector_id}` |
 | `chokepoints` | vectors ranked by how many paths they lie on |
 | `path_finder` | the two metrics above |
+| `search` | caps used, what they cut, and the path count after each collapse mode |
+| `timing` | `time_search()` result over 50 runs |
 
 `dashboard/data.js` is the same object assigned to `window.ASCEND_DATA`, so the
 standalone HTML viewer works over `file://` without a server.
@@ -137,8 +168,9 @@ standalone HTML viewer works over `file://` without a server.
 ## Used as a library
 
 ```python
-from enumerate import enumerate_paths, path_precision
-paths = enumerate_paths(facts)
+from pathfinder import enumerate_paths, search, path_precision
+paths = enumerate_paths(facts)                       # paths only
+paths, stats = search(facts, collapse="minimal")     # paths + what was left out
 ```
 
 Imported in-process by `service/main.py`, `chokepoint/engine.py` and

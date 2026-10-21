@@ -18,6 +18,7 @@ Outputs:  eval/analysis.json  and  dashboard/data.js
 
 import json
 import os
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -26,6 +27,11 @@ ANALYSIS = os.path.join(ROOT, "eval", "analysis.json")
 DATA_JS = os.path.join(ROOT, "dashboard", "data.js")
 
 PRIV = {"low": 1, "root": 2}  # ordered privilege levels
+
+MAX_DEPTH = 12     # longest path searched, in steps
+MAX_PATHS = 1000   # stop searching once this many paths are found
+COLLAPSE_MODES = ("none", "reorder", "minimal")
+COLLAPSE = "minimal"  # report distinct routes, not every ordering of them
 
 
 def node_label(host, priv):
@@ -37,10 +43,30 @@ def load_facts(path):
         return json.load(f)
 
 
-def enumerate_paths(facts, max_depth=12):
+def enumerate_paths(facts, max_depth=MAX_DEPTH, max_paths=MAX_PATHS, collapse=COLLAPSE):
+    """The paths only. See search() for what the caps and collapse modes do."""
+    return search(facts, max_depth, max_paths, collapse)[0]
+
+
+def search(facts, max_depth=MAX_DEPTH, max_paths=MAX_PATHS, collapse=COLLAPSE):
     """DFS over attacker state. A state is (frozenset of (host, priv) controlled,
-    frozenset of credential ids held). Returns a list of paths; each path is an
-    ordered list of steps {from, to, technique, technique_name, vector_id}."""
+    frozenset of credential ids held). Returns (paths, stats); each path is an
+    ordered list of steps {from, to, technique, technique_name, vector_id}.
+
+    stats says what the search left out, so a path count can be trusted:
+      cut_at_depth    branches abandoned at max_depth without reaching the goal
+      hit_path_cap    True if the search stopped at max_paths; more may exist
+      enumerated      paths found before collapsing
+      merged_reorder  paths dropped as the same steps in a different order
+      dropped_extra   paths dropped because a found path does the same with
+                      fewer steps (a superset path has a step it never needed)
+
+    collapse: "minimal" (the default) merges reorderings and drops superset
+    paths, so each path is a distinct route with no unneeded step. "reorder"
+    only merges reorderings; "none" keeps every raw ordering the DFS found.
+    """
+    if collapse not in COLLAPSE_MODES:
+        raise ValueError(f"collapse must be one of {COLLAPSE_MODES}, got {collapse!r}")
 
     entry = facts["entry"]
     goal = facts["crown_jewel"]
@@ -60,6 +86,8 @@ def enumerate_paths(facts, max_depth=12):
     goal_reached = lambda st: (goal["host"], goal["privilege"]) in st[0]
 
     paths = []
+    stats = {"max_depth": max_depth, "max_paths": max_paths, "collapse": collapse,
+             "cut_at_depth": 0, "hit_path_cap": False}
 
     def moves(state):
         """Yield every legal (step_dict, new_state) from the current state."""
@@ -124,10 +152,14 @@ def enumerate_paths(facts, max_depth=12):
             yield step, (controlled | {(gains["host"], gains["privilege"])}, held)
 
     def dfs(state, trail, seen_states):
+        if len(paths) >= max_paths:
+            stats["hit_path_cap"] = True
+            return
         if goal_reached(state):
             paths.append(list(trail))
             return
         if len(trail) >= max_depth:
+            stats["cut_at_depth"] += 1
             return
         for step, new_state in moves(state):
             if new_state in seen_states:
@@ -135,7 +167,49 @@ def enumerate_paths(facts, max_depth=12):
             dfs(new_state, trail + [step], seen_states | {new_state})
 
     dfs(start_state, [], {start_state})
-    return paths
+    stats["enumerated"] = len(paths)
+    kept, stats["merged_reorder"], stats["dropped_extra"] = collapse_paths(paths, collapse)
+    return kept, stats
+
+
+def _action(step):
+    """What a step does, independent of where it sits in the path. A lateral
+    move's `from` label is left out: it names whichever controlled account the
+    search happened to list first, not a different action."""
+    return (step["to"], step["technique"], step.get("vector_id"), step.get("credential"))
+
+
+def collapse_paths(paths, mode):
+    """Returns (kept, merged_reorder, dropped_extra). Keeps the first path of each
+    group, so the result stays deterministic and in search order."""
+    if mode == "none":
+        return list(paths), 0, 0
+    kept, seen = [], set()
+    for path in paths:
+        actions = frozenset(_action(s) for s in path)
+        if actions not in seen:
+            seen.add(actions)
+            kept.append((path, actions))
+    merged = len(paths) - len(kept)
+    if mode == "reorder":
+        return [p for p, _ in kept], merged, 0
+    minimal = [p for p, a in kept if not any(b < a for _, b in kept)]
+    return minimal, merged, len(kept) - len(minimal)
+
+
+def time_search(facts, runs=50, **kwargs):
+    """Wall-clock enumeration time over repeated runs, in milliseconds. Covers
+    the search only; verification time is reported separately by the verifier."""
+    samples = []
+    for _ in range(runs):
+        start = time.perf_counter()
+        search(facts, **kwargs)
+        samples.append((time.perf_counter() - start) * 1000)
+    samples.sort()
+
+    def pct(q):
+        return round(samples[min(len(samples) - 1, int(q * len(samples)))], 3)
+    return {"runs": runs, "p50_ms": pct(0.50), "p95_ms": pct(0.95), "p99_ms": pct(0.99)}
 
 
 def chokepoint(paths):
@@ -250,7 +324,10 @@ def path_precision(facts, paths):
 
 def main():
     facts = load_facts(FACTS)
-    paths = enumerate_paths(facts)
+    paths, stats = search(facts)
+    stats["raw_orderings"] = len(search(facts, collapse="none")[0])
+    stats["after_reorder_merge"] = len(search(facts, collapse="reorder")[0])
+    timing = time_search(facts)
     ranking = chokepoint(paths)
     graph = build_graph(facts)
     precision = path_precision(facts, paths)
@@ -262,6 +339,8 @@ def main():
         "paths": paths,
         "chokepoints": ranking,
         "path_finder": precision,
+        "search": stats,
+        "timing": timing,
     }
 
     os.makedirs(os.path.dirname(ANALYSIS), exist_ok=True)
@@ -290,6 +369,13 @@ def main():
           f"{precision['precision']:.2f}"
           + ("   <- no verifier has run; this is the honest value, not a gap"
              if precision["verification_status"] == "none" else "") + "\n")
+    print(f"Search: depth cap {stats['max_depth']}, path cap {stats['max_paths']}"
+          f"{' (HIT, more paths may exist)' if stats['hit_path_cap'] else ''}, "
+          f"{stats['cut_at_depth']} branch(es) cut at the depth cap")
+    print(f"  {stats['raw_orderings']} raw orderings -> {stats['after_reorder_merge']} after "
+          f"merging reorderings -> {len(paths)} distinct route(s) with no unneeded steps")
+    print(f"Enumeration time over {timing['runs']} runs: p50 {timing['p50_ms']} ms, "
+          f"p95 {timing['p95_ms']} ms, p99 {timing['p99_ms']} ms\n")
     print("Chokepoints (fixes ranked by paths eliminated):")
     for c in ranking:
         print(f"    {c['vector_id']:<24} kills {c['paths_eliminated_if_fixed']}/"
