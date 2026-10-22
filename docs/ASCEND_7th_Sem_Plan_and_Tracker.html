@@ -156,7 +156,7 @@
     <li><strong>The prover (verifier)</strong> — actually runs each route and confirms it worked using a hidden "canary" check, not just a guess.</li>
     <li><strong>The fix engine (chokepoint)</strong> — works out the smallest, cheapest set of fixes that blocks the most routes.</li>
     <li><strong>The dashboard</strong> — a screen (FastAPI + React) to see the network, the routes, and the results.</li>
-    <li><strong>48 automated tests</strong> — checks that keep the code honest.</li>
+    <li><strong>52 automated tests</strong> — checks that keep the code honest.</li>
   </ul>
   <div class="note"><strong>Where we actually stand today:</strong> 4 weaknesses found → 2 routes to
   the database → 1 confirmed real by execution (and 1 partial). The fix engine already ranks fixes:
@@ -182,10 +182,12 @@
       add two honesty checks: a "negative control" (apply a fix that <em>shouldn't</em> matter and show
       routes don't drop) and an "order" check (our cheapest-fix order vs the obvious severity order).
       Wrap it so one command does the whole before→fix→after, live.</span></li>
-    <li><b>Add the exact "best possible" fix check.</b>
-      <span class="how">The fix engine picks fixes the quick (greedy) way today. Add an exact solver
-      that finds the true cheapest fix set, and report how close the greedy pick gets. About a day of
-      work; it is the only new code left in 7th sem.</span></li>
+    <li><b>The exact "best possible" fix check &mdash; done.</b>
+      <span class="how">The fix engine picks fixes the quick (greedy) way; an exact solver now runs
+      alongside it, finds the true cheapest fix set by exhaustion, and reports how close greedy gets
+      (greedy is exactly optimal on the current lab). The negative control and the greedy-vs-naive order
+      check are in too. This was the last new code for 7th sem &mdash; it is committed and covered by
+      tests; what remains is to show its numbers in the report.</span></li>
     <li><b>Settle one naming choice.</b>
       <span class="how">Decide how we label the "reused credential" technique — <code>T1550</code> or
       <code>T1078.003</code> — and make the code (<code>scope.yaml</code>), the PDF, and the report all
