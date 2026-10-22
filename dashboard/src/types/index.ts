@@ -21,10 +21,16 @@ export interface PathStep {
   vector: Vector; credential: Credential | null;
   description: string; verified: boolean | null;
 }
+export interface RiskFactors {
+  severity: number; asset_weight: number; confidence: number;
+  length_penalty: number; formula: string; notes: string;
+}
 export interface AttackPath {
   path_id: string; name: string; length: number;
   entry_host: string; crown_jewel_host: string;
-  overall_verified: boolean | null; risk_score?: number; steps: PathStep[];
+  overall_verified: boolean | null;
+  risk_score?: number; risk_factors?: RiskFactors;
+  steps: PathStep[];
 }
 export interface PathsResponse {
   scenario: string; name: string; entry_point: string; crown_jewel: string;
@@ -33,8 +39,25 @@ export interface PathsResponse {
 
 // ─── Verify ───────────────────────────────────────────────────────────────────
 export interface VerifyEvidence { technique: string; exit_code: number; stdout: string; telemetry: string; }
-export interface VerifyStep { step_number: number; verified: boolean; evidence: VerifyEvidence; }
-export interface VerifyPathResult { overall_verified: boolean; failed_at_step?: number; steps: VerifyStep[]; }
+export interface VerifyStep {
+  step_number: number;
+  verified: boolean;
+  /** Three-valued status: "escalated" | "not_escalated" | "not_executable" */
+  status?: string;
+  /** Reason text from the API (only meaningful for not_executable steps). */
+  reason?: string;
+  evidence: VerifyEvidence;
+}
+export interface VerifyPathResult {
+  overall_verified: boolean;
+  /** Three-valued path status: "verified" | "partial" | "failed" */
+  status?: string;
+  failed_at_step?: number;
+  steps_verified?: number;
+  steps_total?: number;
+  not_executable?: Array<{ step_number: number; technique: string; reason: string }>;
+  steps: VerifyStep[];
+}
 export interface VerifyData {
   execution_run_id: string; status: string; timestamp: string;
   summary: { paths_tested: number; paths_verified: number; paths_failed: number; paths_partial?: number; precision?: number; };
@@ -57,12 +80,29 @@ export interface RemediationData {
   _verification_note?: string;
   ranked_fixes: Fix[];
   efficacy_curve: EfficacyPoint[];
+  /** Real list of applied fix ids, read from GET /api/remediation on load. */
+  applied_fixes?: string[];
+}
+
+// ─── Knowledge (techniques & CVEs) ─────────────────────────────────────────────
+export interface KnowledgeTechnique {
+  attack_id: string; name: string; tactic: string; description: string;
+  cwe: string[]; capec: string[]; present_in_lab: boolean;
+}
+export interface KnowledgeCVE {
+  cve_id: string; name: string; base_cvss: number | null; cvss_vector: string;
+  attack_id: string; affected: string; description: string; present_in_lab: boolean;
+}
+export interface KnowledgeData {
+  source: string; techniques: KnowledgeTechnique[]; cves: KnowledgeCVE[];
+  demonstrated_count: number;
 }
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 export interface StatusMetrics {
   hosts_count: number; vectors_count: number; enumerated_paths: number;
-  verified_paths: number; precision?: string; chokepoints_identified: number;
+  verified_paths: number; precision?: string; partial_paths?: number;
+  chokepoints_identified: number;
   active_scenario: string; applied_fixes_count?: number; eliminated_paths_count?: number;
 }
 export interface StatusData {

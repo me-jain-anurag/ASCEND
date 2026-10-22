@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Activity, AlertTriangle, Network as NetworkIcon,
-  RefreshCw, ShieldCheck, TrendingDown, Home
+  RefreshCw, ShieldCheck, TrendingDown, Home, Target, BookOpen,
+  Sun, Moon, Bug
 } from 'lucide-react';
 import { api } from './api';
 import type {
@@ -12,10 +13,14 @@ import NetworkGraph from './components/NetworkGraph';
 import PathList from './components/PathList';
 import RemediationPanel from './components/RemediationPanel';
 import Sidebar from './components/Sidebar';
+import DocsPanel from './components/DocsPanel';
+import TechniquesPanel from './components/TechniquesPanel';
+import InfoTooltip from './components/InfoTooltip';
+import type { KnowledgeData } from './types';
 
-type Tab = 'overview' | 'network' | 'paths' | 'remediation';
+type Tab = 'overview' | 'network' | 'paths' | 'techniques' | 'remediation' | 'docs';
 
-const TABS: Tab[] = ['overview', 'network', 'paths', 'remediation'];
+const TABS: Tab[] = ['overview', 'network', 'paths', 'techniques', 'remediation', 'docs'];
 
 /**
  * The visible tab lives in the URL hash rather than in component state alone.
@@ -62,6 +67,7 @@ function OverviewTab({
   onSwitchTab: (t: Tab) => void;
 }) {
   const m = status.summary_metrics;
+  const precisionValue = verifyData?.summary?.precision;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="stats-row">
@@ -70,6 +76,23 @@ function OverviewTab({
         <StatCard label="Attack Paths" value={m.enumerated_paths} icon={<Shield size={14} />} variant="danger" />
         <StatCard label="Verified Paths" value={m.verified_paths} icon={<ShieldCheck size={14} />} variant={m.verified_paths > 0 ? 'danger' : 'safe'} />
         <StatCard label="Chokepoints" value={m.chokepoints_identified} icon={<TrendingDown size={14} />} variant="safe" />
+        {precisionValue != null && (
+          <StatCard
+            label="Precision"
+            value={`${verifyData!.summary.paths_verified} of ${verifyData!.summary.paths_tested} proven`}
+            icon={<Target size={14} />}
+            variant={precisionValue > 0.5 ? 'danger' : 'default'}
+            sub={`${(precisionValue * 100).toFixed(0)}% of enumerated paths execution-verified`}
+            info={
+              <InfoTooltip title="Execution precision">
+                Fraction of enumerated paths proven end-to-end by running every
+                step in the lab. Partial paths (a step the lab cannot execute)
+                count against it. Distinct from config coverage, which only
+                checks the configuration is present.
+              </InfoTooltip>
+            }
+          />
+        )}
         {m.eliminated_paths_count != null && m.eliminated_paths_count > 0 && (
           <StatCard label="Paths Eliminated" value={m.eliminated_paths_count} icon={<ShieldCheck size={14} />} variant="safe"
             sub={`${m.applied_fixes_count} fix${m.applied_fixes_count !== 1 ? 'es' : ''} applied`} />
@@ -80,20 +103,21 @@ function OverviewTab({
       <div className="two-col">
         <div className="card">
           <div className="card-header">
-            <Activity size={16} color="var(--accent-cyan)" />
+            <Activity size={16} color="var(--text-1)" />
             <h2>Active Scenario</h2>
           </div>
           <div className="card-body">
-            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent-cyan)', marginBottom: 6 }}>
-              {m.active_scenario === 'benign' ? '🟢 Benign' : '🔴 Default Adversary'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, fontWeight: 700, color: 'var(--text-0)', marginBottom: 6 }}>
+              <span className={`scenario-dot ${m.active_scenario === 'benign' ? 'benign' : 'adversary'}`} />
+              {m.active_scenario === 'benign' ? 'Benign' : 'Default Adversary'}
             </div>
             {paths && (
               <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.6 }}>
                 {paths.description || paths.name}
                 {paths.description && (
                   <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>
-                    Entry: <b style={{ color: 'var(--accent-cyan)' }}>{paths.entry_point}</b> →
-                    Crown Jewel: <b style={{ color: 'var(--accent-red)' }}>{paths.crown_jewel}</b>
+                    Entry: <b style={{ color: 'var(--accent-partial)' }}>{paths.entry_point}</b> →
+                    Crown Jewel: <b style={{ color: 'var(--accent-gap)' }}>{paths.crown_jewel}</b>
                   </div>
                 )}
               </div>
@@ -102,7 +126,7 @@ function OverviewTab({
         </div>
         <div className="card">
           <div className="card-header">
-            <ShieldCheck size={16} color="var(--accent-green)" />
+            <ShieldCheck size={16} color="var(--accent-verified)" />
             <h2>Verification Summary</h2>
           </div>
           <div className="card-body">
@@ -110,7 +134,7 @@ function OverviewTab({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-cyan)', lineHeight: 1 }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-0)', lineHeight: 1 }}>
                       {verifyData.summary.paths_tested}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -118,7 +142,7 @@ function OverviewTab({
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-green)', lineHeight: 1 }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-verified)', lineHeight: 1 }}>
                       {verifyData.summary.paths_verified}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -131,7 +155,7 @@ function OverviewTab({
                       row reads "3 tested, 0 verified, 0 failed", and the three
                       paths appear to have vanished. */}
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-amber)', lineHeight: 1 }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-partial)', lineHeight: 1 }}>
                       {verifyData.summary.paths_partial ?? 0}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -139,7 +163,7 @@ function OverviewTab({
                     </div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent-red)', lineHeight: 1 }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-gap)', lineHeight: 1 }}>
                       {verifyData.summary.paths_failed}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -184,15 +208,16 @@ function OverviewTab({
 }
 
 function StatCard({
-  label, value, icon, variant = 'default', sub
+  label, value, icon, variant = 'default', sub, info
 }: {
   label: string; value: string | number; icon?: React.ReactNode;
   variant?: 'default' | 'danger' | 'warn' | 'safe'; sub?: string;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="stat-card">
       {icon && <div className="stat-icon">{icon}</div>}
-      <div className="stat-label">{label}</div>
+      <div className="stat-label">{label}{info}</div>
       <div className={`stat-value${variant !== 'default' ? ` ${variant}` : ''}`}>{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
@@ -202,6 +227,17 @@ function StatCard({
 // ─── Root App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>(tabFromHash);
+
+  // Colour theme. Persisted per-viewer; dark is the default. Applied as
+  // data-theme on <html> so the CSS token overrides take effect globally.
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try { return (localStorage.getItem('ascend-theme') as 'dark' | 'light') || 'dark'; }
+    catch { return 'dark'; }
+  });
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('ascend-theme', theme); } catch { /* private mode */ }
+  }, [theme]);
 
   // Back/Forward change the hash; mirror that into state.
   useEffect(() => {
@@ -231,6 +267,7 @@ export default function App() {
   const [verifyData, setVerifyData] = useState<VerifyData | null>(null);
   const [remediation, setRemediation] = useState<RemediationData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
+  const [knowledge, setKnowledge] = useState<KnowledgeData | null>(null);
 
   // UI states
   const [selectedPath, setSelectedPath] = useState<AttackPath | null>(null);
@@ -246,23 +283,29 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [net, pth, vfy, rem, st] = await Promise.all([
+      const [net, pth, rem, st, kn] = await Promise.all([
         api.get<NetworkData>('/api/network'),
         api.post<PathsResponse>('/api/enumerate', { scenario: sc }),
-        api.post<VerifyData>('/api/verify'),
         api.get<RemediationData>('/api/remediation'),
         api.get<StatusData>('/api/status'),
+        api.get<KnowledgeData>('/api/knowledge'),
       ]);
       setNetwork(net);
       setPaths(pth);
-      setVerifyData(vfy);
       setRemediation(rem);
       setStatus(st);
-      setAppliedFixes(st.summary_metrics.applied_fixes_count
-        ? Array.from({ length: st.summary_metrics.applied_fixes_count! }, (_, i) => `fix-0${i + 1}`)
-        : []
-      );
+      setKnowledge(kn);
+      setAppliedFixes(rem.applied_fixes ?? []);
       setBackendOnline(true);
+
+      // Attempt verification run, but do not block the core dashboard if Docker is not ready
+      try {
+        const vfy = await api.post<VerifyData>('/api/verify');
+        setVerifyData(vfy);
+      } catch (vErr) {
+        console.warn('In-container verifier currently unavailable (requires Docker):', vErr);
+        setVerifyData(null);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       // Only suggest "the server is down" when nothing answered at all. A
@@ -326,22 +369,20 @@ export default function App() {
         .map(([id]) => id)
     : [];
 
+  const partialPathIds = verifyData
+    ? Object.entries(verifyData.results)
+        .filter(([, r]) => r.status === 'partial')
+        .map(([id]) => id)
+    : [];
+
   return (
     <div className="shell">
       {/* ── Topbar ── */}
       <header className="topbar">
         <div className="topbar-logo">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" stroke="url(#logoGrad)" strokeWidth="1.5" strokeLinejoin="round" />
-            <path d="M12 22V12M2 7l10 5 10-5" stroke="url(#logoGrad2)" strokeWidth="1.5" />
-            <defs>
-              <linearGradient id="logoGrad" x1="2" y1="2" x2="22" y2="22">
-                <stop stopColor="#00d4ff" /><stop offset="1" stopColor="#8b5cf6" />
-              </linearGradient>
-              <linearGradient id="logoGrad2" x1="2" y1="7" x2="22" y2="17">
-                <stop stopColor="#00d4ff" /><stop offset="1" stopColor="#3b82f6" />
-              </linearGradient>
-            </defs>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'var(--text-0)' }}>
+            <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <path d="M12 22V12M2 7l10 5 10-5" stroke="#8D909C" strokeWidth="1.5" />
           </svg>
           <div>
             <div className="wordmark">ASCEND</div>
@@ -360,7 +401,8 @@ export default function App() {
               className={`scenario-tab${scenario === sc ? ' active' : ''}`}
               onClick={() => handleScenarioChange(sc)}
             >
-              {sc === 'default' ? '🔴 Adversary' : '🟢 Benign'}
+              <span className={`scenario-dot ${sc === 'default' ? 'adversary' : 'benign'}`} />
+              {sc === 'default' ? 'Adversary' : 'Benign'}
             </button>
           ))}
         </div>
@@ -373,6 +415,17 @@ export default function App() {
           <div className={`status-dot${backendOnline ? '' : ' offline'}`} />
           {backendOnline ? 'Backend Online' : 'Backend Offline'}
         </div>
+
+        <button
+          id="topbar-theme"
+          className="btn btn-ghost"
+          onClick={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          style={{ padding: '6px 10px' }}
+        >
+          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
 
         <button
           id="topbar-home"
@@ -426,7 +479,7 @@ export default function App() {
             <>
               <div className="page-header">
                 <div className="section-heading">
-                  <NetworkIcon size={20} color="var(--accent-cyan)" />
+                  <NetworkIcon size={20} color="var(--text-1)" />
                   <div>
                     <h1>Network Topology</h1>
                     <div className="subtitle">
@@ -442,6 +495,7 @@ export default function App() {
                       network={network}
                       activePath={selectedPath}
                       verifiedPathIds={verifiedPathIds}
+                      partialPathIds={partialPathIds}
                     />
                   </div>
                 </div>
@@ -467,14 +521,14 @@ export default function App() {
                             <td><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-0)' }}>{h.hostname}</span></td>
                             <td><span className="tag tag-blue">{h.role}</span></td>
                             <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{h.os}</span></td>
-                            <td><span style={{ fontWeight: 700, color: h.asset_value >= 80 ? 'var(--accent-red)' : 'var(--text-1)' }}>{h.asset_value}</span></td>
+                            <td><span style={{ fontWeight: 700, color: h.asset_value >= 80 ? 'var(--accent-gap)' : 'var(--text-1)' }}>{h.asset_value}</span></td>
                             <td>
                               <span className={`tag ${h.vectors.length > 0 ? 'tag-amber' : 'tag-green'}`}>
                                 {h.vectors.length}
                               </span>
                             </td>
                             <td style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                              {h.is_entry_point && <span className="tag tag-cyan">Entry</span>}
+                              {h.is_entry_point && <span className="tag tag-amber">Entry</span>}
                               {h.is_crown_jewel && <span className="tag tag-red">Crown Jewel</span>}
                             </td>
                           </tr>
@@ -492,7 +546,7 @@ export default function App() {
             <>
               <div className="page-header">
                 <div className="section-heading">
-                  <AlertTriangle size={20} color="var(--accent-red)" />
+                  <AlertTriangle size={20} color="var(--text-1)" />
                   <div>
                     <h1>Attack Paths</h1>
                     <div className="subtitle">
@@ -502,14 +556,24 @@ export default function App() {
                 </div>
                 <div className="page-header-actions">
                   {selectedPath && (
-                    <span style={{ fontSize: 11, color: 'var(--accent-cyan)' }}>
+                    <span style={{ fontSize: 11, color: 'var(--accent-partial)' }}>
                       Path highlighted in Network view
                     </span>
                   )}
                   <button
                     id="run-verify"
                     className="btn btn-primary"
-                    onClick={() => api.post<VerifyData>('/api/verify').then(setVerifyData)}
+                    onClick={() => {
+                      setLoading(true);
+                      setError(null);
+                      api.post<VerifyData>('/api/verify')
+                        .then(setVerifyData)
+                        .catch(err => {
+                          const msg = err instanceof Error ? err.message : String(err);
+                          setError(msg);
+                        })
+                        .finally(() => setLoading(false));
+                    }}
                     disabled={loading}
                   >
                     <ShieldCheck size={13} /> Run Verifier
@@ -528,12 +592,34 @@ export default function App() {
             </>
           )}
 
+          {/* ── Techniques & CVEs ── */}
+          {activeTab === 'techniques' && (
+            <>
+              <div className="page-header">
+                <div className="section-heading">
+                  <Bug size={20} color="var(--text-1)" />
+                  <div>
+                    <h1>Techniques &amp; CVEs</h1>
+                    <div className="subtitle">
+                      {knowledge
+                        ? `${knowledge.demonstrated_count} ATT&CK techniques demonstrated · ${knowledge.cves.length} anchor CVEs`
+                        : 'What each technique and vulnerability is'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {loading && !knowledge ? <Loader /> : knowledge ? (
+                <TechniquesPanel data={knowledge} />
+              ) : null}
+            </>
+          )}
+
           {/* ── Remediation ── */}
           {activeTab === 'remediation' && (
             <>
               <div className="page-header">
                 <div className="section-heading">
-                  <Shield size={20} color="var(--accent-green)" />
+                  <Shield size={20} color="var(--text-1)" />
                   <div>
                     <h1>Remediation</h1>
                     <div className="subtitle">Chokepoint analysis & ranked fixes</div>
@@ -552,6 +638,26 @@ export default function App() {
                   hasVerifyRun={!!verifyData}
                 />
               ) : null}
+            </>
+          )}
+
+          {/* ── Docs / Methodology ── */}
+          {activeTab === 'docs' && (
+            <>
+              <div className="page-header">
+                <div className="section-heading">
+                  <BookOpen size={20} color="var(--text-1)" />
+                  <div>
+                    <h1>Methodology</h1>
+                    <div className="subtitle">How every figure on this dashboard is calculated</div>
+                  </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-body">
+                  <DocsPanel />
+                </div>
+              </div>
             </>
           )}
         </div>

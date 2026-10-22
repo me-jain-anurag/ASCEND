@@ -1,6 +1,6 @@
 import {
   Server, Shield, Activity, Wrench, RotateCcw,
-  Network, AlertTriangle, ShieldCheck
+  Network, AlertTriangle, ShieldCheck, BookOpen, Bug
 } from 'lucide-react';
 import type { StatusData } from '../types';
 
@@ -16,7 +16,9 @@ const TABS = [
   { id: 'overview',    label: 'Overview',     icon: Activity },
   { id: 'network',     label: 'Network',      icon: Network },
   { id: 'paths',       label: 'Attack Paths', icon: AlertTriangle },
+  { id: 'techniques',  label: 'Techniques',   icon: Bug },
   { id: 'remediation', label: 'Remediation',  icon: Wrench },
+  { id: 'docs',        label: 'Methodology',  icon: BookOpen },
 ];
 
 export default function Sidebar({ status, activeTab, onTabChange, onReset, loading }: Props) {
@@ -80,6 +82,12 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
             <MetricRow icon={AlertTriangle} label="Vectors" value={m.vectors_count} color="var(--accent-amber)" />
             <MetricRow icon={Shield} label="Paths" value={m.enumerated_paths} color="var(--accent-red)" />
             <MetricRow icon={ShieldCheck} label="Verified" value={m.verified_paths} color="var(--accent-green)" />
+            {(m.partial_paths ?? 0) > 0 && (
+              <MetricRow icon={AlertTriangle} label="Partial" value={m.partial_paths!} color="var(--accent-amber)" tooltip="Paths where every executable step succeeded but at least one step could not be attempted" />
+            )}
+            {m.precision && (
+              <MetricRow icon={ShieldCheck} label="Coverage" value={m.precision} tooltip="Config coverage: fraction of paths whose vectors have the required configuration present" />
+            )}
           </div>
         </div>
       )}

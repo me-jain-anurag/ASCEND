@@ -333,7 +333,8 @@ verifier:
       declared_kernel_note: >-
         db01's environment graph says 5.16.0, which is declared for the graph
         (provenance: declared) and cannot make the running kernel vulnerable.
-        Use the three-VM fallback in docs/02 section 6 to execute this for real.
+        Proving this step for real requires a host running a genuinely affected
+        kernel, which a shared-kernel container cannot provide.
       # Bring-your-own-binary: the verifier never ships exploit code. Workstream
       # A builds a real CVE-2022-0847 exploit and places it here. Until then this
       # technique reports not_executable, never a pass or a fail.
