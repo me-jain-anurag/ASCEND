@@ -81,12 +81,15 @@ def _cmd_batch(scope, args) -> None:
     )
 
     # Summary
-    positives = sum(1 for o in outcomes if o.escalated)
-    negatives = len(outcomes) - positives
+    # not_executable never ran, so it is neither a positive nor a negative label.
+    positives = sum(1 for o in outcomes if o.status == "escalated")
+    negatives = sum(1 for o in outcomes if o.status == "not_escalated")
+    blocked = len(outcomes) - positives - negatives
     print(f"\n{'=' * 60}")
     print(f"Batch complete: {len(outcomes)} runs")
     print(f"  Positives (escalated):     {positives}")
     print(f"  Negatives (not escalated): {negatives}")
+    print(f"  Not executable (no label): {blocked}")
     print(f"  Output: {args.output}")
 
 
