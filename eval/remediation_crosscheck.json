@@ -1,0 +1,147 @@
+{
+  "optimality": {
+    "greedy_size": 1,
+    "greedy_cost": 1,
+    "greedy_covers_all_paths": true,
+    "optimal": {
+      "algorithm": "exact minimum-cost set cover (exhaustive over candidates)",
+      "total_paths": 2,
+      "candidates_total": 5,
+      "candidates_useful": 4,
+      "computed": true,
+      "size": 1,
+      "cost": 1,
+      "covers_all_paths": true,
+      "paths_covered": 2,
+      "fix_keys": [
+        "v_web01_credfile_id_rsa"
+      ],
+      "subsets_evaluated": 16
+    },
+    "cost_gap": 0,
+    "size_gap": 0,
+    "greedy_is_optimal": true
+  },
+  "negative_control": {
+    "kind": "real",
+    "control_fix": {
+      "fix_kind": "vector",
+      "target": "v_app01_sudo_tar",
+      "technique": "T1548.003",
+      "host": "app01",
+      "cost": 2
+    },
+    "paths_before": 2,
+    "paths_after": 2,
+    "paths_eliminated": [],
+    "unchanged": true,
+    "_note": "A fix off every route must not remove a route. 'unchanged' True means the apply\u2192re-enumerate harness does not invent reductions."
+  },
+  "ordering": {
+    "naive_baseline": "severity-first: highest-CVSS weakness first, ties by discovery order, credential revocation last \u2014 blind to path overlap and to fix cost",
+    "greedy_order": [
+      "v_web01_credfile_id_rsa",
+      "revoke_app_deploy_key",
+      "v_db01_suid_find",
+      "v_db01_kernel_cve_2022_0847",
+      "v_app01_sudo_tar"
+    ],
+    "naive_order": [
+      "v_app01_sudo_tar",
+      "v_db01_suid_find",
+      "v_db01_kernel_cve_2022_0847",
+      "v_web01_credfile_id_rsa",
+      "revoke_app_deploy_key"
+    ],
+    "greedy_fixes_to_full_cover": 1,
+    "naive_fixes_to_full_cover": 3,
+    "greedy_cost_to_full_cover": 1,
+    "naive_cost_to_full_cover": 9,
+    "greedy_reaches_cover_no_later": true,
+    "greedy_cost_no_higher": true,
+    "greedy_curve": [
+      {
+        "fixes_applied": 0,
+        "paths_eliminated": 0,
+        "reduction_pct": 0.0,
+        "cost_so_far": 0
+      },
+      {
+        "fixes_applied": 1,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 1
+      },
+      {
+        "fixes_applied": 2,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 3
+      },
+      {
+        "fixes_applied": 3,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 5
+      },
+      {
+        "fixes_applied": 4,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 10
+      },
+      {
+        "fixes_applied": 5,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 12
+      }
+    ],
+    "naive_curve": [
+      {
+        "fixes_applied": 0,
+        "paths_eliminated": 0,
+        "reduction_pct": 0.0,
+        "cost_so_far": 0
+      },
+      {
+        "fixes_applied": 1,
+        "paths_eliminated": 0,
+        "reduction_pct": 0.0,
+        "cost_so_far": 2
+      },
+      {
+        "fixes_applied": 2,
+        "paths_eliminated": 1,
+        "reduction_pct": 50.0,
+        "cost_so_far": 4
+      },
+      {
+        "fixes_applied": 3,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 9
+      },
+      {
+        "fixes_applied": 4,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 10
+      },
+      {
+        "fixes_applied": 5,
+        "paths_eliminated": 2,
+        "reduction_pct": 100.0,
+        "cost_so_far": 12
+      }
+    ]
+  },
+  "checks": {
+    "greedy_is_optimal": true,
+    "negative_control_unchanged": true,
+    "greedy_reaches_cover_no_later": true,
+    "greedy_cost_no_higher": true
+  },
+  "all_passed": true,
+  "_note": "Greedy, the exact optimum, the negative control and both orderings all measure elimination by removing the fix from a copy of the facts and re-running the enumerator, so these checks compare like with like."
+}

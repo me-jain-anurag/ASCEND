@@ -298,6 +298,85 @@ def test_fix_ids_resolve_and_path_ids_are_stable():
     assert not (survivors & eliminated)
 
 
+# ─── Chokepoint cross-checks (the honesty layer) ──────────────────────────────
+
+def test_greedy_cover_matches_the_exact_optimum():
+    """Greedy is an approximation; the exact minimum-cost cover is found here by
+    exhaustion and must not be cheaper than greedy on a graph this size."""
+    from chokepoint.engine import greedy_vs_optimal
+    facts, _ = _facts_from_capture()
+    cmp = greedy_vs_optimal(facts, SCOPE)
+
+    assert cmp["optimal"]["computed"], cmp["optimal"]
+    # Both solutions cover every path, so the costs are comparable...
+    assert cmp["greedy_covers_all_paths"] and cmp["optimal"]["covers_all_paths"]
+    # ...and greedy can never beat the true optimum, only match it.
+    assert cmp["cost_gap"] is not None and cmp["cost_gap"] >= 0
+    assert cmp["greedy_cost"] >= cmp["optimal"]["cost"]
+    # On this lab the cheap exposed-key fix makes greedy exactly optimal.
+    assert cmp["greedy_is_optimal"] is True
+    assert cmp["cost_gap"] == 0 and cmp["size_gap"] == 0
+    # The exact search really enumerated subsets, not just trusted greedy.
+    assert cmp["optimal"]["subsets_evaluated"] >= 2
+
+
+def test_negative_control_leaves_the_routes_unchanged():
+    """A fix that is off every route must remove nothing — the guard against a
+    harness that reports a reduction for any applied fix."""
+    from chokepoint.engine import negative_control, eliminated_path_ids, known_fix_ids
+    facts, _ = _facts_from_capture()
+    control = negative_control(facts, SCOPE)
+
+    assert control["unchanged"] is True
+    assert control["paths_before"] == control["paths_after"] > 0
+    assert control["paths_eliminated"] == []
+    # The chosen control fix is a genuine, in-scope weakness (the lab's app01
+    # sudo-tar rule) that on its own eliminates no path.
+    assert control["kind"] == "real"
+    target = control["control_fix"]["target"]
+    matching = [fid for fid in known_fix_ids(facts, SCOPE)
+                if not eliminated_path_ids(facts, SCOPE, [fid])]
+    assert matching, "expected at least one zero-impact fix to exist in the lab"
+
+
+def test_efficiency_order_beats_naive_severity_first_order():
+    """The greedy, path-and-cost-aware order must reach full coverage no later
+    and no more expensively than 'patch the highest-CVSS weakness first'."""
+    from chokepoint.engine import ordering_comparison
+    facts, _ = _facts_from_capture()
+    order = ordering_comparison(facts, SCOPE)
+
+    # Both orders eventually cover everything (a full cover exists)...
+    assert order["greedy_fixes_to_full_cover"] is not None
+    assert order["naive_fixes_to_full_cover"] is not None
+    # ...but greedy gets there no later and no costlier.
+    assert order["greedy_reaches_cover_no_later"] is True
+    assert order["greedy_cost_no_higher"] is True
+    assert order["greedy_fixes_to_full_cover"] <= order["naive_fixes_to_full_cover"]
+    assert order["greedy_cost_to_full_cover"] <= order["naive_cost_to_full_cover"]
+    # Each curve only ever eliminates more paths as fixes accumulate.
+    for curve in (order["greedy_curve"], order["naive_curve"]):
+        elim = [pt["paths_eliminated"] for pt in curve]
+        assert elim == sorted(elim), elim
+
+
+def test_cross_checks_bundle_passes_and_attaches_opt_in_only():
+    from chokepoint.engine import cross_checks, build_remediation
+    facts, _ = _facts_from_capture()
+
+    result = cross_checks(facts, SCOPE)
+    assert result["all_passed"] is True
+    assert set(result["checks"]) == {
+        "greedy_is_optimal", "negative_control_unchanged",
+        "greedy_reaches_cover_no_later", "greedy_cost_no_higher",
+    }
+
+    # The honesty layer is opt-in: the default plan (what the service serves) is
+    # unchanged, and asking for it attaches exactly one new key.
+    assert "cross_checks" not in build_remediation(facts, SCOPE)
+    assert "cross_checks" in build_remediation(facts, SCOPE, include_cross_checks=True)
+
+
 # ─── Service contract ─────────────────────────────────────────────────────────
 
 def test_api_contract_and_apply_reset_loop():

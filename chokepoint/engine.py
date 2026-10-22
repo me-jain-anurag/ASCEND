@@ -23,6 +23,7 @@ the right trade for a graph of this size and is honest to describe as "greedy".
 from __future__ import annotations
 
 import copy
+import itertools
 import string
 import sys
 from pathlib import Path
@@ -233,8 +234,15 @@ def _render(cand: dict, scope: dict, rank: int, eliminated: list[str],
 # The plan
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_remediation(facts: dict, scope: dict | None = None) -> dict:
-    """Produce the RemediationData the dashboard's remediation panel renders."""
+def build_remediation(facts: dict, scope: dict | None = None,
+                      include_cross_checks: bool = False) -> dict:
+    """Produce the RemediationData the dashboard's remediation panel renders.
+
+    `include_cross_checks` attaches the honesty layer (exact-optimum comparison,
+    negative control, greedy-vs-naive ordering) under a "cross_checks" key. It is
+    off by default so the per-request service path and the frontend contract are
+    unchanged; the evaluation/report path turns it on.
+    """
     scope = scope or {}
     paths, baseline_ids = _baseline(facts)
     total = len(paths)
@@ -307,7 +315,7 @@ def build_remediation(facts: dict, scope: dict | None = None) -> dict:
         for c in chosen
     )
 
-    return {
+    plan = {
         # Frontend contract field. No verifier has run, so this is the count of
         # ENUMERATED paths; the name is kept for compatibility and the real
         # meaning is stated alongside it.
@@ -333,6 +341,13 @@ def build_remediation(facts: dict, scope: dict | None = None) -> dict:
             "execution-verified, so these are predicted eliminations."
         ),
     }
+
+    if include_cross_checks:
+        # cross_checks() re-enters build_remediation with the default flag off,
+        # so this does not recurse.
+        plan["cross_checks"] = cross_checks(facts, scope)
+
+    return plan
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -396,3 +411,429 @@ def baseline_path_ids(facts: dict) -> dict:
 def path_signature(path: list[dict]) -> tuple:
     """Public alias for the canonical path identity."""
     return _signature(path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cross-checks — the honesty layer for the remediation claims
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# build_remediation() produces a greedy cover and asserts it is small and cheap.
+# The three functions below are the checks that keep that claim honest, and they
+# are deliberately computed with the SAME primitive the engine already trusts —
+# _eliminated_by(), i.e. remove the fix from a copy of the facts and re-run the
+# enumerator. Greedy and the checks therefore measure elimination the same way,
+# so a disagreement is a real disagreement, never an artefact of two methods.
+#
+#   optimal_cover / greedy_vs_optimal   is the greedy cover actually the cheapest
+#                                       cover that exists? (exact, by exhaustion)
+#   negative_control                    does a fix that is OFF every route leave
+#                                       the routes unchanged? (guards against a
+#                                       harness that always "finds" a reduction)
+#   ordering_comparison                 does the efficiency-greedy order reach
+#                                       full cover no later and no costlier than
+#                                       the obvious "patch-highest-CVSS-first"
+#                                       order a scanner-driven team would follow?
+#
+# All three are reported, pass or fail. A tie (greedy already optimal; the naive
+# order happens to match) is reported as a tie — that is the honest result, and
+# the machinery still generalises to the fuller lab where a single cheap fix no
+# longer covers everything.
+
+
+def _fix_cost(cand: dict, scope: dict) -> int:
+    """Cost of a candidate, read the same way build_remediation sums cover cost
+    (scope.remediation[technique].cost, default 3), so optimal, greedy and naive
+    costs are all on one scale and are directly comparable."""
+    return (scope or {}).get("remediation", {}).get(cand["technique"], {}).get("cost", 3)
+
+
+def _covers_all(eliminated: set, all_ids: set) -> bool:
+    return eliminated == all_ids
+
+
+def optimal_cover(facts: dict, scope: dict | None = None,
+                  max_candidates: int = 16) -> dict:
+    """The exact minimum-cost set of fixes that eliminates every baseline path.
+
+    Weighted set-cover is NP-hard, so build_remediation uses the greedy
+    ln(n)+1 approximation. This is the cross-check: with a candidate set this
+    small, the exact optimum can simply be found by trying every subset and
+    keeping the cheapest one that covers all paths. Each subset's effect is
+    measured by re-enumeration (the same _eliminated_by the greedy engine uses),
+    not by unioning per-fix counts, so the optimum and the greedy cover are
+    compared on identical ground.
+
+    Candidates that eliminate nothing are pruned first: they can never belong to
+    a minimum-cost cover, and dropping them keeps the exhaustive search bounded.
+    If more than `max_candidates` useful candidates remain, the exact search is
+    skipped (computed=False with the reason) rather than run past a sane bound.
+
+    Tie-breaking, in order: full cover beats partial; then least cost; then
+    fewest fixes; then the lexicographically smallest key set, for determinism.
+    """
+    scope = scope or {}
+    paths, ids = _baseline(facts)
+    all_ids = set(ids.values())
+    total = len(paths)
+
+    candidates = _candidates(facts)
+    solo = {c["key"]: set(_eliminated_by(facts, [c], ids)) for c in candidates}
+    useful = [c for c in candidates if solo[c["key"]]]
+
+    base = {
+        "algorithm": "exact minimum-cost set cover (exhaustive over candidates)",
+        "total_paths": total,
+        "candidates_total": len(candidates),
+        "candidates_useful": len(useful),
+    }
+
+    if total == 0:
+        return {**base, "computed": True, "size": 0, "cost": 0,
+                "covers_all_paths": True, "fix_keys": [], "subsets_evaluated": 0}
+
+    if len(useful) > max_candidates:
+        return {**base, "computed": False,
+                "reason": (f"{len(useful)} path-eliminating candidates exceed the "
+                           f"exhaustive cap of {max_candidates}; greedy stands "
+                           f"without an exact cross-check at this size")}
+
+    best = None  # (covers_all, cost, size, keys_tuple, covered_count)
+    evaluated = 0
+    for r in range(len(useful) + 1):
+        for combo in itertools.combinations(useful, r):
+            evaluated += 1
+            covered = set()
+            for c in combo:
+                covered |= solo[c["key"]]
+            cost = sum(_fix_cost(c, scope) for c in combo)
+            keys = tuple(sorted(c["key"] for c in combo))
+            covers_all = _covers_all(covered, all_ids)
+            # Rank so the winner is: full cover first, then cheapest, then fewest
+            # fixes, then deterministic. Partial covers are compared by coverage.
+            rank = (0 if covers_all else 1, cost, r, keys)
+            partial_rank = (-len(covered), cost, r, keys)
+            record = (covers_all, cost, r, keys, len(covered), rank, partial_rank)
+            if best is None:
+                best = record
+                continue
+            # Prefer any full cover over any partial one.
+            if record[0] != best[0]:
+                if record[0]:                       # record is full, best was not
+                    best = record
+                continue
+            if best[0]:                             # both full: cheapest/smallest
+                if record[5] < best[5]:
+                    best = record
+            else:                                   # both partial: most coverage
+                if record[6] < best[6]:
+                    best = record
+
+    covers_all, cost, size, keys, covered_count, _r, _p = best
+    return {
+        **base,
+        "computed": True,
+        "size": size,
+        "cost": cost,
+        "covers_all_paths": covers_all,
+        "paths_covered": covered_count,
+        "fix_keys": list(keys),
+        "subsets_evaluated": evaluated,
+    }
+
+
+def greedy_vs_optimal(facts: dict, scope: dict | None = None,
+                      max_candidates: int = 16) -> dict:
+    """Compare the greedy cover build_remediation ships against the exact optimum.
+
+    The headline is `greedy_is_optimal`: True when greedy's cover costs exactly
+    what the cheapest possible cover costs. `cost_gap` (greedy − optimal, ≥ 0) is
+    how much the approximation overspends; for a greedy ln(n)+1 result it is
+    usually 0 on a graph this size, and reporting the 0 is the point.
+    """
+    scope = scope or {}
+    plan = build_remediation(facts, scope)
+    greedy = plan["minimum_cover"]
+    opt = optimal_cover(facts, scope, max_candidates=max_candidates)
+
+    out = {
+        "greedy_size": greedy["size"],
+        "greedy_cost": greedy["cost"],
+        "greedy_covers_all_paths": greedy["covers_all_paths"],
+        "optimal": opt,
+    }
+    if opt.get("computed"):
+        # Only a like-for-like comparison is meaningful: both must cover all.
+        both_cover = greedy["covers_all_paths"] and opt["covers_all_paths"]
+        out["cost_gap"] = greedy["cost"] - opt["cost"] if both_cover else None
+        out["size_gap"] = greedy["size"] - opt["size"] if both_cover else None
+        out["greedy_is_optimal"] = bool(both_cover and greedy["cost"] == opt["cost"])
+    else:
+        out["greedy_is_optimal"] = None     # not checkable at this size
+    return out
+
+
+def negative_control(facts: dict, scope: dict | None = None) -> dict:
+    """Apply a fix that should change nothing, and confirm nothing changes.
+
+    The remediation claims all rest on "apply the fix, re-enumerate, the paths
+    are gone". A measurement harness with a bug could instead report a reduction
+    for *any* applied fix. The negative control rules that out: it picks a real,
+    in-scope weakness that lies OFF every route to the crown jewel (so fixing it
+    cannot remove a route), applies it, re-enumerates, and asserts the surviving
+    routes are byte-for-byte the baseline routes.
+
+    `unchanged` True is the pass. The lab's app01 sudo-tar rule is such a fix: a
+    genuine privilege-escalation weakness a scanner flags, but not on any path to
+    db01, so removing it leaves both routes intact. If the lab has no off-route
+    weakness, a synthetic no-op is used instead (kind="synthetic") so the check
+    still runs, clearly labelled as the weaker form.
+    """
+    scope = scope or {}
+    paths, ids = _baseline(facts)
+    baseline_sigs = {_signature(p) for p in paths}
+
+    candidates = _candidates(facts)
+    off_route = [c for c in candidates
+                 if not _eliminated_by(facts, [c], ids)]
+
+    if off_route:
+        # Prefer a vector (a concrete, scanner-visible weakness) when available.
+        chosen = next((c for c in off_route if c["kind"] == "vector"), off_route[0])
+        patched = _apply(facts, [chosen])
+        kind = "real"
+        control_desc = {
+            "fix_kind": chosen["kind"],
+            "target": chosen.get("vector", {}).get("vector_id") if chosen["kind"] == "vector"
+                      else chosen["key"],
+            "technique": chosen["technique"],
+            "host": chosen.get("host", ""),
+            "cost": _fix_cost(chosen, scope),
+        }
+    else:
+        # Synthetic fallback: a fix that removes a vector id present on no path.
+        # It exercises the full apply→re-enumerate harness yet must not change a
+        # thing, because there was nothing on a route to remove.
+        patched = _apply(facts, [{
+            "kind": "vector",
+            "vector": {"vector_id": "__ascend_negative_control_noop__"},
+            "technique": "T0000",
+        }])
+        kind = "synthetic"
+        control_desc = {"fix_kind": "synthetic-noop",
+                        "target": "__ascend_negative_control_noop__",
+                        "technique": "T0000", "host": "", "cost": 0}
+
+    survivors = enumerate_paths(patched)
+    survivor_sigs = {_signature(p) for p in survivors}
+
+    return {
+        "kind": kind,
+        "control_fix": control_desc,
+        "paths_before": len(paths),
+        "paths_after": len(survivors),
+        "paths_eliminated": sorted(pid for sig, pid in ids.items()
+                                   if sig not in survivor_sigs),
+        "unchanged": survivor_sigs == baseline_sigs,
+        "_note": ("A fix off every route must not remove a route. 'unchanged' "
+                  "True means the apply→re-enumerate harness does not invent "
+                  "reductions."),
+    }
+
+
+def _severity(cand: dict) -> float:
+    """CVSS a scanner-driven team would sort by. Credential revocation has no CVE
+    of its own, so it sorts last — exactly the blind spot the greedy, path-aware
+    ordering is meant to cover."""
+    if cand["kind"] == "vector":
+        return float(cand.get("vector", {}).get("cvss", 0.0) or 0.0)
+    return -1.0
+
+
+def _cumulative_curve(facts: dict, scope: dict, order: list[dict],
+                      ids: dict, all_ids: set) -> dict:
+    """Apply the ordering prefix by prefix, re-enumerating each time, and record
+    when (and at what cumulative cost) it first covers every path."""
+    total = len(all_ids)
+    curve = [{"fixes_applied": 0, "paths_eliminated": 0, "reduction_pct": 0.0,
+              "cost_so_far": 0}]
+    fixes_to_cover = None
+    cost_to_cover = None
+    running_cost = 0
+    for i in range(1, len(order) + 1):
+        running_cost += _fix_cost(order[i - 1], scope)
+        eliminated = set(_eliminated_by(facts, order[:i], ids))
+        curve.append({
+            "fixes_applied": i,
+            "paths_eliminated": len(eliminated),
+            "reduction_pct": round(100.0 * len(eliminated) / total, 1) if total else 0.0,
+            "cost_so_far": running_cost,
+        })
+        if fixes_to_cover is None and _covers_all(eliminated, all_ids):
+            fixes_to_cover = i
+            cost_to_cover = running_cost
+    return {"curve": curve, "fixes_to_full_cover": fixes_to_cover,
+            "cost_to_full_cover": cost_to_cover}
+
+
+def ordering_comparison(facts: dict, scope: dict | None = None) -> dict:
+    """Greedy (efficiency-first) order vs naive (severity-first) order.
+
+    The greedy order is the one build_remediation already selected: the cover
+    first, chosen by marginal paths-eliminated-per-unit-cost. The naive order is
+    the obvious human instinct — fix the highest-CVSS weakness first — which is
+    blind to both path overlap and fix cost.
+
+    The check is `greedy_reaches_cover_no_later` and `greedy_cost_no_higher`:
+    the greedy order must reach full coverage in no more fixes and at no greater
+    cost than severity-first. When a single cheap fix covers everything they can
+    tie; where coverage needs several fixes, accounting for overlap and cost is
+    what separates them.
+    """
+    scope = scope or {}
+    _paths, ids = _baseline(facts)
+    all_ids = set(ids.values())
+
+    candidates = _candidates(facts)
+    by_key = {c["key"]: c for c in candidates}
+
+    # Greedy order: reuse build_remediation's own ranking so the two never drift.
+    plan = build_remediation(facts, scope)
+    greedy_order = [by_key[f["_candidate_key"]] for f in plan["ranked_fixes"]
+                    if f["_candidate_key"] in by_key]
+
+    # Naive order: CVSS desc, ties by discovery order (stable), credential last.
+    disc = {c["key"]: i for i, c in enumerate(candidates)}
+    naive_order = sorted(candidates, key=lambda c: (-_severity(c), disc[c["key"]]))
+
+    greedy = _cumulative_curve(facts, scope, greedy_order, ids, all_ids)
+    naive = _cumulative_curve(facts, scope, naive_order, ids, all_ids)
+
+    def _le(a, b):      # a no worse than b, treating "never covers" (None) as ∞
+        if a is None:
+            return b is None
+        return b is None or a <= b
+
+    return {
+        "naive_baseline": ("severity-first: highest-CVSS weakness first, ties by "
+                           "discovery order, credential revocation last — blind "
+                           "to path overlap and to fix cost"),
+        "greedy_order": [c["key"] for c in greedy_order],
+        "naive_order": [c["key"] for c in naive_order],
+        "greedy_fixes_to_full_cover": greedy["fixes_to_full_cover"],
+        "naive_fixes_to_full_cover": naive["fixes_to_full_cover"],
+        "greedy_cost_to_full_cover": greedy["cost_to_full_cover"],
+        "naive_cost_to_full_cover": naive["cost_to_full_cover"],
+        "greedy_reaches_cover_no_later": _le(greedy["fixes_to_full_cover"],
+                                             naive["fixes_to_full_cover"]),
+        "greedy_cost_no_higher": _le(greedy["cost_to_full_cover"],
+                                     naive["cost_to_full_cover"]),
+        "greedy_curve": greedy["curve"],
+        "naive_curve": naive["curve"],
+    }
+
+
+def cross_checks(facts: dict, scope: dict | None = None,
+                 max_candidates: int = 16) -> dict:
+    """All three honesty checks in one object, each reported pass or fail.
+
+    `all_passed` is the conjunction of every check that could be evaluated; a
+    check that was not computable (e.g. the exact optimum was skipped because the
+    candidate set was too large) does not count against it, and its own field
+    still records that it was skipped.
+    """
+    scope = scope or {}
+    optimality = greedy_vs_optimal(facts, scope, max_candidates=max_candidates)
+    control = negative_control(facts, scope)
+    ordering = ordering_comparison(facts, scope)
+
+    checks = {
+        "greedy_is_optimal": optimality["greedy_is_optimal"],
+        "negative_control_unchanged": control["unchanged"],
+        "greedy_reaches_cover_no_later": ordering["greedy_reaches_cover_no_later"],
+        "greedy_cost_no_higher": ordering["greedy_cost_no_higher"],
+    }
+    evaluated = [v for v in checks.values() if v is not None]
+
+    return {
+        "optimality": optimality,
+        "negative_control": control,
+        "ordering": ordering,
+        "checks": checks,
+        "all_passed": all(evaluated) if evaluated else False,
+        "_note": ("Greedy, the exact optimum, the negative control and both "
+                  "orderings all measure elimination by removing the fix from a "
+                  "copy of the facts and re-running the enumerator, so these "
+                  "checks compare like with like."),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Standalone report
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    """Run the cross-checks against the live facts and print a short report.
+
+    Dependency-light and self-contained, like enumerator/pathfinder.py:
+        python3 chokepoint/engine.py
+    Writes eval/remediation_crosscheck.json alongside the printed summary.
+    """
+    import json
+
+    facts_path = ROOT / "environment_graph" / "facts.json"
+    scope_path = ROOT / "scope.yaml"
+    facts = json.loads(facts_path.read_text())
+    scope = {}
+    if scope_path.exists():
+        try:
+            import yaml
+            scope = yaml.safe_load(scope_path.read_text()) or {}
+        except Exception:
+            scope = {}
+
+    result = cross_checks(facts, scope)
+    opt = result["optimality"]
+    ctl = result["negative_control"]
+    order = result["ordering"]
+
+    print("ASCEND remediation cross-checks\n" + "=" * 32)
+    print("\n[1] Greedy cover vs exact optimum")
+    print(f"    greedy : size {opt['greedy_size']}, cost {opt['greedy_cost']}, "
+          f"covers all = {opt['greedy_covers_all_paths']}")
+    if opt["optimal"].get("computed"):
+        o = opt["optimal"]
+        print(f"    optimal: size {o['size']}, cost {o['cost']}, "
+              f"covers all = {o['covers_all_paths']} "
+              f"({o['subsets_evaluated']} subsets checked)")
+        print(f"    => greedy is optimal: {opt['greedy_is_optimal']} "
+              f"(cost gap {opt['cost_gap']})")
+    else:
+        print(f"    optimal: skipped — {opt['optimal'].get('reason')}")
+
+    print("\n[2] Negative control (a fix off every route)")
+    print(f"    control: {ctl['control_fix']['target']} "
+          f"({ctl['kind']}, technique {ctl['control_fix']['technique']})")
+    print(f"    paths {ctl['paths_before']} -> {ctl['paths_after']}, "
+          f"eliminated {ctl['paths_eliminated']}")
+    print(f"    => routes unchanged: {ctl['unchanged']}")
+
+    print("\n[3] Greedy order vs naive severity-first order")
+    print(f"    greedy order: {order['greedy_order']}")
+    print(f"    naive  order: {order['naive_order']}")
+    print(f"    full cover — greedy: {order['greedy_fixes_to_full_cover']} fix(es) "
+          f"at cost {order['greedy_cost_to_full_cover']}; "
+          f"naive: {order['naive_fixes_to_full_cover']} fix(es) "
+          f"at cost {order['naive_cost_to_full_cover']}")
+    print(f"    => greedy no later: {order['greedy_reaches_cover_no_later']}, "
+          f"no costlier: {order['greedy_cost_no_higher']}")
+
+    print(f"\nAll checks passed: {result['all_passed']}")
+
+    out_path = ROOT / "eval" / "remediation_crosscheck.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(result, indent=2))
+    print(f"Wrote {out_path.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()
