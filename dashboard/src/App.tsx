@@ -302,6 +302,9 @@ export default function App() {
       try {
         const vfy = await api.post<VerifyData>('/api/verify');
         setVerifyData(vfy);
+        // /api/status was fetched above, before this run, so its verified and
+        // partial counts describe the previous run (0 on first load).
+        setStatus(await api.get<StatusData>('/api/status'));
       } catch (vErr) {
         console.warn('In-container verifier currently unavailable (requires Docker):', vErr);
         setVerifyData(null);
@@ -567,7 +570,10 @@ export default function App() {
                       setLoading(true);
                       setError(null);
                       api.post<VerifyData>('/api/verify')
-                        .then(setVerifyData)
+                        .then(async vfy => {
+                          setVerifyData(vfy);
+                          setStatus(await api.get<StatusData>('/api/status'));
+                        })
                         .catch(err => {
                           const msg = err instanceof Error ? err.message : String(err);
                           setError(msg);

@@ -857,10 +857,8 @@ def get_status():
       enumerated_paths              enumerator.enumerate_paths()
       precision                     enumerator.path_precision() config coverage
       chokepoints_identified        chokepoint.engine minimum cover size
-
-    Still a placeholder:
-      verified_paths                no verifier exists; reported as 0, not
-                                    borrowed from the verify.json fixture
+      verified_paths / partial_paths  the most recent POST /api/verify run;
+                                    0 until one has run
     """
     facts = _load_facts()
     scope = _load_scope()
