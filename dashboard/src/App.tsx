@@ -675,6 +675,9 @@ export default function App() {
                   verifyData={verifyData}
                   onSelectPath={setSelectedPath}
                   selectedPathId={selectedPath?.path_id}
+                  tactics={Object.fromEntries(
+                    (knowledge?.techniques ?? []).map(t => [t.attack_id, t.tactic]),
+                  )}
                 />
               ) : null}
             </>

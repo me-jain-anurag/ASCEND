@@ -2,7 +2,9 @@
 export interface Account { username: string; type: string; privilege_level: number; }
 export interface Vector {
   vector_id: string; technique: string; technique_name?: string;
-  cve: string | null; cvss: number;
+  cve: string | null;
+  /** Null when the step has no scored vector (e.g. a lateral move on a reused credential). */
+  cvss: number | null;
   features: Record<string, unknown>; verified_exploitable: boolean | null;
 }
 export interface Host {

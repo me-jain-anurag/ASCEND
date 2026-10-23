@@ -7,10 +7,19 @@ interface Props {
   verifyData?: VerifyData | null;
   onSelectPath: (path: AttackPath | null) => void;
   selectedPathId?: string | null;
+  /** ATT&CK technique id -> tactic, from /api/knowledge. */
+  tactics?: Record<string, string>;
 }
 
 function techniqueTag(t: string) {
   return <span className="tag tag-purple" key={t}>{t}</span>;
+}
+
+/** Tactic for a technique id. A combined id ("T1021.004+T1550") is looked up
+ *  part by part; parts sharing a tactic show it once. Null when unknown. */
+function tacticOf(technique: string, tactics: Record<string, string>): string | null {
+  const found = technique.split('+').map(id => tactics[id.trim()]).filter(Boolean);
+  return found.length ? [...new Set(found)].join(' / ') : null;
 }
 
 /**
@@ -46,7 +55,9 @@ function stepStatus(stepVerify: { verified: boolean; status?: string; reason?: s
   return stepVerify.verified ? 'escalated' : 'not_escalated';
 }
 
-export default function PathList({ paths, verifyData, onSelectPath, selectedPathId }: Props) {
+export default function PathList({
+  paths, verifyData, onSelectPath, selectedPathId, tactics = {},
+}: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (!paths.length) {
@@ -179,13 +190,16 @@ export default function PathList({ paths, verifyData, onSelectPath, selectedPath
                             <span>→</span>
                             <span>{step.target_host} ({step.target_account.username})</span>
                             {techniqueTag(step.vector.technique)}
-                            {step.vector.cvss !== undefined && (
+                            {tacticOf(step.vector.technique, tactics) && (
+                              <span className="tag tag-blue">{tacticOf(step.vector.technique, tactics)}</span>
+                            )}
+                            {step.vector.cvss != null && (
                               <span className={`tag ${step.vector.cvss >= 7 ? 'tag-red' : step.vector.cvss >= 4 ? 'tag-amber' : 'tag-green'}`}>
                                 CVSS {step.vector.cvss.toFixed(1)}
                               </span>
                             )}
                             {step.vector.cve && (
-                              <span className="tag tag-blue">{step.vector.cve}</span>
+                              <span className="tag tag-gray">{step.vector.cve}</span>
                             )}
                           </div>
 

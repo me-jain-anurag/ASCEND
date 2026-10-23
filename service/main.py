@@ -284,7 +284,9 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
                 "technique":          s["technique"],
                 "technique_name":     s.get("technique_name"),
                 "cve":                s["vec_meta"].get("cve", None),
-                "cvss":               s["vec_meta"].get("cvss", 0.0),
+                # None, not 0.0, when the step has no scored vector (a lateral
+                # move on a reused credential): 0.0 would read as "no severity".
+                "cvss":               s["vec_meta"].get("cvss"),
                 "features":           s["vec_meta"].get("features", {}),
                 "verified_exploitable": s["vec_meta"].get("verified_exploitable", None),
             }

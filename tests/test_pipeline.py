@@ -460,7 +460,7 @@ _OPT_BOOL = (bool, type(None))
 
 _ACCOUNT = {"username": _STR, "type": _STR, "privilege_level": int}
 _VECTOR = {"vector_id": (str, type(None)), "technique": _STR,
-           "cve": (str, type(None)), "cvss": _NUM, "features": dict,
+           "cve": (str, type(None)), "cvss": (int, float, type(None)), "features": dict,
            "verified_exploitable": _OPT_BOOL}
 _HOST = {"hostname": _STR, "role": _STR, "os": _STR, "kernel_version": _STR,
          "asset_value": _NUM, "is_entry_point": _BOOL, "is_crown_jewel": _BOOL,
