@@ -75,6 +75,8 @@ export interface RemediationData {
   _verification_note?: string;
   ranked_fixes: Fix[];
   efficacy_curve: EfficacyPoint[];
+  /** Smallest set of fixes that together break every path (the chokepoints). */
+  minimum_cover?: { fixes: string[]; size: number; cost: number; covers_all_paths: boolean };
   /** Real list of applied fix ids, read from GET /api/remediation on load. */
   applied_fixes?: string[];
 }

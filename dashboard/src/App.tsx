@@ -456,6 +456,8 @@ export default function App() {
       {/* ── Sidebar ── */}
       <Sidebar
         status={status}
+        remediation={remediation}
+        appliedFixes={appliedFixes}
         activeTab={activeTab}
         onTabChange={t => goToTab(t as Tab)}
         onReset={handleReset}

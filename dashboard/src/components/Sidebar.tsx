@@ -2,14 +2,37 @@ import {
   Server, Shield, Activity, Wrench, RotateCcw,
   Network, AlertTriangle, ShieldCheck, BookOpen, Bug
 } from 'lucide-react';
-import type { StatusData } from '../types';
+import type { StatusData, RemediationData } from '../types';
 
 interface Props {
   status: StatusData | null;
+  remediation: RemediationData | null;
+  appliedFixes: string[];
   activeTab: string;
   onTabChange: (tab: string) => void;
   onReset: () => void;
   loading?: boolean;
+}
+
+/**
+ * Remediation nav badge: how many chokepoint fixes (the minimum cover) are
+ * still unapplied. Red until any fix is applied, amber after that while paths
+ * remain. Hidden once the chokepoint set is applied or no path remains.
+ */
+function remediationBadge(
+  rem: RemediationData | null, applied: string[], pathsRemaining: number | undefined,
+): { text: string; tone: '' | ' amber'; title: string } | null {
+  const pending = (rem?.minimum_cover?.fixes ?? []).filter(id => !applied.includes(id));
+  if (pending.length === 0 || pathsRemaining === 0) return null;
+  const parts = [
+    `${pending.length} chokepoint fix${pending.length !== 1 ? 'es' : ''} left to break every path (${pending.join(', ')})`,
+  ];
+  if (pathsRemaining != null) parts.push(`${pathsRemaining} attack path${pathsRemaining !== 1 ? 's' : ''} remaining`);
+  return {
+    text: String(pending.length),
+    tone: applied.length > 0 ? ' amber' : '',
+    title: parts.join(' · '),
+  };
 }
 
 const TABS = [
@@ -21,8 +44,11 @@ const TABS = [
   { id: 'docs',        label: 'Methodology',  icon: BookOpen },
 ];
 
-export default function Sidebar({ status, activeTab, onTabChange, onReset, loading }: Props) {
+export default function Sidebar({
+  status, remediation, appliedFixes, activeTab, onTabChange, onReset, loading,
+}: Props) {
   const m = status?.summary_metrics;
+  const remBadge = remediationBadge(remediation, appliedFixes, m?.enumerated_paths);
   return (
     <nav className="sidebar">
       {/* System info */}
@@ -39,10 +65,10 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
       <div className="sidebar-group-label">Navigation</div>
       {TABS.map(tab => {
         const Icon = tab.icon;
-        let badge: string | null = null;
-        if (tab.id === 'paths' && m) badge = String(m.enumerated_paths);
-        if (tab.id === 'remediation' && m?.eliminated_paths_count != null && m.eliminated_paths_count > 0)
-          badge = `−${m.eliminated_paths_count}`;
+        let badge: { text: string; tone: string; title?: string } | null = null;
+        if (tab.id === 'paths' && m)
+          badge = { text: String(m.enumerated_paths), tone: m.enumerated_paths === 0 ? ' green' : '' };
+        if (tab.id === 'remediation') badge = remBadge;
         return (
           <button
             key={tab.id}
@@ -53,8 +79,8 @@ export default function Sidebar({ status, activeTab, onTabChange, onReset, loadi
             <Icon className="nav-icon" size={16} />
             {tab.label}
             {badge && (
-              <span className={`nav-badge${tab.id === 'remediation' ? ' green' : ''}`}>
-                {badge}
+              <span className={`nav-badge${badge.tone}`} title={badge.title}>
+                {badge.text}
               </span>
             )}
           </button>
