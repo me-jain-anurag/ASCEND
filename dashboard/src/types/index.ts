@@ -42,8 +42,12 @@ export interface PathsResponse {
 // ─── Verify ───────────────────────────────────────────────────────────────────
 export interface VerifyEvidence {
   technique: string; exit_code: number; stdout: string; telemetry: string;
-  /** What stdout is, e.g. "whoami on app01" or "root-only canary read". */
-  check?: string;
+  /** The command the verifier ran, one statement per line; empty if nothing ran. */
+  command?: string[];
+  /** The account and host it ran as. */
+  run_as?: string | null; host?: string;
+  /** True when Docker was unreachable and the result is simulated, not executed. */
+  simulated?: boolean;
 }
 export interface VerifyStep {
   step_number: number;

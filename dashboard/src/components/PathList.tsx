@@ -221,8 +221,22 @@ export default function PathList({
                           {/* Verified evidence */}
                           {stepVerify && sStatus !== 'not_executable' && (
                             <div className="step-evidence">
-                              <span className="evidence-label">{stepVerify.evidence.check ?? 'output'} →</span>{' '}
-                              {stepVerify.evidence.stdout}
+                              {stepVerify.evidence.simulated && (
+                                <div className="evidence-cmd"># simulated: Docker unreachable, nothing ran</div>
+                              )}
+                              {(stepVerify.evidence.command?.length ?? 0) > 0 && (
+                                <>
+                                  {stepVerify.evidence.run_as && (
+                                    <div className="evidence-cmd">
+                                      # as {stepVerify.evidence.run_as} on {stepVerify.evidence.host}
+                                    </div>
+                                  )}
+                                  {stepVerify.evidence.command!.map((line, i) => (
+                                    <div key={i} className="evidence-cmd">$ {line}</div>
+                                  ))}
+                                </>
+                              )}
+                              <div>{stepVerify.evidence.stdout}</div>
                             </div>
                           )}
 

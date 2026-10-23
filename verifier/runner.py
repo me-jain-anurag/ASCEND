@@ -218,9 +218,10 @@ def verify_path(
     edges = []
     for edge in path_edges:
         tech = scope.technique(edge["technique_id"])
+        start_user = edge.get("start_user", tech.start_user)
         outcome = run_one(
             host=edge["host"],
-            start_user=edge.get("start_user", tech.start_user),
+            start_user=start_user,
             technique=tech.raw,
             scenario="live",
             scope=scope,
@@ -235,6 +236,10 @@ def verify_path(
             "reason": outcome.reason,
             "run_id": outcome.run_id,
             "evidence": outcome.evidence,
+            # What actually ran, and as whom, so a reader can see the command
+            # behind the evidence rather than only its output.
+            "raw_cmd": outcome.raw_cmd,
+            "start_user": start_user,
         })
         # Stop on a genuine failure: downstream edges start from a foothold the
         # attacker never obtained, so running them would prove nothing. A

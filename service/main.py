@@ -1,5 +1,6 @@
 import datetime as _dt
 import json
+import shlex
 import subprocess
 import sys
 import uuid
@@ -626,23 +627,43 @@ def _simulate_lab_path(runnable: list[dict]) -> dict:
     return {"edges": edges}
 
 
-def _evidence_check(technique: str, target_host: str, status: str, simulated: bool) -> str:
-    """What a step's stdout is, so the dashboard can label it.
+def _command_lines(raw_cmd: list[str] | None) -> list[str]:
+    """The verifier's command as shell lines, one statement per line.
 
-    The labels follow the success signals in verifier/signal.py: a lateral SSH
-    hop passes when `whoami` on the target prints the expected user, and an
-    escalation passes when the root-only canary file is read. Anything else
-    (a failure, a skipped step) is plain command output.
+    Adapters wrap their payload as ["sh", "-c", payload]; that wrapper is
+    dropped. The payload is split on top-level `&&` and `;` only — never inside
+    quotes or after a backslash, because the setuid escape carries a literal
+    `\\;` that belongs to `find -exec`. Empty when nothing ran.
     """
-    if simulated:
-        return "simulated (Docker unreachable)"
-    if status != "escalated":
-        return "output"
-    if "T1021.004" in technique or "T1550" in technique:
-        return f"whoami on {target_host}"
-    if technique.startswith(("T1548", "T1068", "T1611")):
-        return "root-only canary read"
-    return "output"
+    if not raw_cmd:
+        return []
+    if len(raw_cmd) == 3 and raw_cmd[:2] == ["sh", "-c"]:
+        payload = raw_cmd[2]
+    else:
+        return [shlex.join(raw_cmd)]
+
+    lines, cur, quote, i = [], "", None, 0
+    while i < len(payload):
+        ch = payload[i]
+        if quote:
+            cur += ch
+            if ch == quote:
+                quote = None
+        elif ch == "\\" and i + 1 < len(payload):
+            cur += payload[i:i + 2]
+            i += 1
+        elif ch in "'\"":
+            quote = ch
+            cur += ch
+        elif payload.startswith("&&", i) or ch == ";":
+            lines.append(cur.strip())
+            cur = ""
+            i += 1 if ch == "&" else 0
+        else:
+            cur += ch
+        i += 1
+    lines.append(cur.strip())
+    return [ln for ln in lines if ln]
 
 
 @app.post("/api/verify")
@@ -734,10 +755,15 @@ def verify_paths():
                     "technique": step["vector"]["technique"],
                     "exit_code": 0 if ok else 1,
                     "stdout": (data.get("evidence") or "")[:400],
-                    "check": _evidence_check(
-                        step["vector"]["technique"], step["target_host"],
-                        status, simulated,
-                    ),
+                    # The real command and the account it ran as. Empty for a
+                    # step that never ran, or when the result is simulated.
+                    "command": _command_lines(data.get("raw_cmd")),
+                    "run_as":  data.get("start_user"),
+                    # From the verifier's own edge record, so user and host
+                    # describe the same execution; the step's source host is
+                    # the fallback when nothing ran.
+                    "host":    (data.get("edge") or {}).get("host", step["source_host"]),
+                    "simulated": simulated,
                     # No syscall telemetry is captured yet; verifier/telemetry.py
                     # is an interface with no Falco behind it. Saying so beats
                     # printing a plausible-looking auditd line that nothing
