@@ -14,6 +14,7 @@ _ENUMERATOR_DIR = str(Path(__file__).resolve().parent.parent / "enumerator")
 if _ENUMERATOR_DIR not in sys.path:
     sys.path.insert(0, _ENUMERATOR_DIR)
 from pathfinder import enumerate_paths as _enumerate_paths, path_precision as _path_precision
+from pathfinder import MAX_DEPTH as _MAX_DEPTH
 
 # Make chokepoint/ importable as a package from the repository root.
 _ROOT = Path(__file__).resolve().parent.parent
@@ -356,6 +357,38 @@ def get_network():
     return _build_network_from_facts(_effective_facts(facts, scope))
 
 
+def _facts_source_label(meta: dict) -> str:
+    """Where facts.json came from, in words. `source` is set by collectors/collect.py."""
+    src = meta.get("source") or "unknown"
+    if src.startswith("docker:"):
+        return "Live lab capture (Docker)"
+    if src.startswith("replay:"):
+        return f"Replayed capture ({src.split(':', 1)[1]})"
+    if src == "local":
+        return "This machine (local probe)"
+    return src
+
+
+def _execution_counts(path_ids: list[str]) -> dict | None:
+    """Verified / partial counts from the last /api/verify run, over `path_ids`.
+
+    path_precision() reads `verified_exploitable` from the facts file, which a
+    verify run never writes, so its execution count is always 0. The run's
+    results are the real record. Only paths that still enumerate are counted,
+    so a path eliminated by a fix after the run does not count as verified.
+    None when no run has happened yet.
+    """
+    run = state.get("last_verification")
+    if not run:
+        return None
+    results = [run["results"][pid] for pid in path_ids if pid in run["results"]]
+    return {
+        "verified": sum(1 for r in results if r["overall_verified"]),
+        "partial":  sum(1 for r in results if r.get("status") == "partial"),
+        "tested":   len(results),
+    }
+
+
 @app.post("/api/enumerate")
 def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
     """Enumerates attack paths from entry point to crown jewel.
@@ -377,6 +410,12 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
     raw_paths = _enumerate_paths(effective)
     precision = _path_precision(effective, raw_paths)
     eliminated = _eliminated_path_ids(facts, scope, state["applied_fixes"])
+    execution = _execution_counts([p["path_id"] for p in paths])
+    n = len(paths)
+    route = (
+        f"{facts['entry']['host']} ({facts['entry']['privilege']} privilege) to "
+        f"{facts['crown_jewel']['host']} ({facts['crown_jewel']['privilege']})"
+    )
 
     return {
         "scenario":    "live",
@@ -388,18 +427,22 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
         "applied_fixes":        list(state["applied_fixes"]),
         "eliminated_path_ids":  eliminated,
         "config_coverage":      round(precision["config_coverage"], 4),
-        "verification_status":  precision["verification_status"],
-        "description": (
-            f"Real-time DFS enumeration: {len(paths)} path(s) from "
-            f"{facts['entry']['host']}:{facts['entry']['privilege']} to "
-            f"{facts['crown_jewel']['host']}:{facts['crown_jewel']['privilege']}. "
-            f"Config coverage {precision['config_covered']}/{precision['proposed']}. "
-            f"Execution-verified {precision['verified']}/{precision['proposed']} "
-            f"(POST /api/verify to run the techniques in the lab)."
-            + (f" {len(state['applied_fixes'])} fix(es) applied; "
-               f"{len(eliminated)} path(s) eliminated."
-               if state["applied_fixes"] else "")
+        "config_covered":       precision["config_covered"],
+        # From the last verify run, not path_precision() (see _execution_counts).
+        # Null until a run has happened.
+        "execution_verified":   execution["verified"] if execution else None,
+        "execution_partial":    execution["partial"] if execution else None,
+        "verification_status": (
+            "none" if not execution or execution["verified"] == 0 else
+            "complete" if execution["verified"] == n else "partial"
         ),
+        "description": (
+            f"{n} attack path{'' if n == 1 else 's'} from {route}." if n else
+            f"No attack path remains from {route}."
+        ),
+        "algorithm":          f"Depth-first search, up to {_MAX_DEPTH} steps per path",
+        "facts_source":       _facts_source_label(facts.get("_meta", {})),
+        "facts_collected_at": facts.get("_meta", {}).get("collected_at"),
     }
 
 

@@ -39,6 +39,35 @@ function tabFromHash(): Tab {
 }
 type Scenario = 'default' | 'benign';
 
+const SCENARIO_TIPS: Record<Scenario, string> = {
+  default:
+    'Adversary: an attacker with a low-privilege foothold on the entry host. ' +
+    'ASCEND finds every escalation route to the crown jewel, runs each one in ' +
+    'the lab, and ranks the fixes that break them.',
+  benign:
+    'Benign look-alike: an admin doing legitimate work that resembles an ' +
+    'attack step (e.g. normal SSH use). ASCEND should report no attack path. ' +
+    'Not available yet: this lab variant has not been built.',
+};
+
+/** "22 Oct 2026, 14:27 UTC" — the collector writes ISO timestamps in UTC. */
+function formatUtc(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+  }) + ' UTC';
+}
+
+/** The responses whose verified/partial counts change after a verify run. */
+function fetchRunCounts(sc: Scenario) {
+  return Promise.all([
+    api.get<StatusData>('/api/status'),
+    api.post<PathsResponse>('/api/enumerate', { scenario: sc }),
+  ]);
+}
+
 // ─── Loading / Error helpers ──────────────────────────────────────────────────
 function Loader({ text = 'Loading…' }: { text?: string }) {
   return (
@@ -114,12 +143,55 @@ function OverviewTab({
             {paths && (
               <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.6 }}>
                 {paths.description || paths.name}
-                {paths.description && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>
-                    Entry: <b style={{ color: 'var(--accent-partial)' }}>{paths.entry_point}</b> →
-                    Crown Jewel: <b style={{ color: 'var(--accent-gap)' }}>{paths.crown_jewel}</b>
-                  </div>
-                )}
+                <dl className="scenario-facts">
+                  <dt>Entry → crown jewel</dt>
+                  <dd>
+                    <b style={{ color: 'var(--accent-partial)' }}>{paths.entry_point}</b> →{' '}
+                    <b style={{ color: 'var(--accent-gap)' }}>{paths.crown_jewel}</b>
+                  </dd>
+                  {paths.algorithm && (
+                    <>
+                      <dt>Algorithm</dt>
+                      <dd>{paths.algorithm}</dd>
+                    </>
+                  )}
+                  {paths.facts_source && (
+                    <>
+                      <dt>Facts</dt>
+                      <dd>
+                        {paths.facts_source}
+                        {paths.facts_collected_at && `, collected ${formatUtc(paths.facts_collected_at)}`}
+                      </dd>
+                    </>
+                  )}
+                  {paths.config_covered != null && paths.total_paths > 0 && (
+                    <>
+                      <dt>Config coverage</dt>
+                      <dd>{paths.config_covered} of {paths.total_paths} paths</dd>
+                    </>
+                  )}
+                  {paths.total_paths > 0 && (
+                    <>
+                      <dt>Execution-verified</dt>
+                      <dd>
+                        {paths.execution_verified == null
+                          ? 'Not run yet'
+                          : `${paths.execution_verified} of ${paths.total_paths} paths`
+                            + (paths.execution_partial ? ` (${paths.execution_partial} partial)` : '')}
+                      </dd>
+                    </>
+                  )}
+                  {(paths.applied_fixes?.length ?? 0) > 0 && (
+                    <>
+                      <dt>Fixes applied</dt>
+                      <dd>
+                        {paths.applied_fixes!.length}, eliminating{' '}
+                        {paths.eliminated_path_ids?.length ?? 0} path
+                        {(paths.eliminated_path_ids?.length ?? 0) !== 1 ? 's' : ''}
+                      </dd>
+                    </>
+                  )}
+                </dl>
               </div>
             )}
           </div>
@@ -302,9 +374,11 @@ export default function App() {
       try {
         const vfy = await api.post<VerifyData>('/api/verify');
         setVerifyData(vfy);
-        // /api/status was fetched above, before this run, so its verified and
-        // partial counts describe the previous run (0 on first load).
-        setStatus(await api.get<StatusData>('/api/status'));
+        // Status and paths were fetched above, before this run, so their
+        // verified and partial counts describe the previous run (0 on first load).
+        const [st2, pth2] = await fetchRunCounts(sc);
+        setStatus(st2);
+        setPaths(pth2);
       } catch (vErr) {
         console.warn('In-container verifier currently unavailable (requires Docker):', vErr);
         setVerifyData(null);
@@ -398,15 +472,19 @@ export default function App() {
         {/* Scenario switcher */}
         <div className="scenario-tabs">
           {(['default', 'benign'] as Scenario[]).map(sc => (
-            <button
-              key={sc}
-              id={`scenario-${sc}`}
-              className={`scenario-tab${scenario === sc ? ' active' : ''}`}
-              onClick={() => handleScenarioChange(sc)}
-            >
-              <span className={`scenario-dot ${sc === 'default' ? 'adversary' : 'benign'}`} />
-              {sc === 'default' ? 'Adversary' : 'Benign'}
-            </button>
+            // The title sits on a wrapper: a disabled button gets no hover
+            // events in some browsers, so its own title would never show.
+            <span key={sc} title={SCENARIO_TIPS[sc]}>
+              <button
+                id={`scenario-${sc}`}
+                className={`scenario-tab${scenario === sc ? ' active' : ''}`}
+                onClick={() => handleScenarioChange(sc)}
+                disabled={sc === 'benign'}
+              >
+                <span className={`scenario-dot ${sc === 'default' ? 'adversary' : 'benign'}`} />
+                {sc === 'default' ? 'Adversary' : 'Benign'}
+              </button>
+            </span>
           ))}
         </div>
 
@@ -574,7 +652,9 @@ export default function App() {
                       api.post<VerifyData>('/api/verify')
                         .then(async vfy => {
                           setVerifyData(vfy);
-                          setStatus(await api.get<StatusData>('/api/status'));
+                          const [st, pth] = await fetchRunCounts(scenario);
+                          setStatus(st);
+                          setPaths(pth);
                         })
                         .catch(err => {
                           const msg = err instanceof Error ? err.message : String(err);

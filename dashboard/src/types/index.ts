@@ -30,6 +30,11 @@ export interface AttackPath {
 export interface PathsResponse {
   scenario: string; name: string; entry_point: string; crown_jewel: string;
   total_paths: number; paths: AttackPath[]; description: string;
+  applied_fixes?: string[]; eliminated_path_ids?: string[];
+  config_covered?: number;
+  /** From the last verify run; null until one has happened. */
+  execution_verified?: number | null; execution_partial?: number | null;
+  algorithm?: string; facts_source?: string; facts_collected_at?: string | null;
 }
 
 // ─── Verify ───────────────────────────────────────────────────────────────────

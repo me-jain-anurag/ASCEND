@@ -553,6 +553,14 @@ html, body, #root {
 .scenario-dot.adversary { background: var(--accent-gap); }
 .scenario-dot.benign    { background: var(--accent-verified); }
 .scenario-tab { display: inline-flex; align-items: center; gap: 7px; }
+.scenario-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.scenario-tabs > span { display: inline-flex; }
+.scenario-facts {
+  display: grid; grid-template-columns: auto 1fr; gap: 3px 12px;
+  margin: 10px 0 0; font-size: 11px;
+}
+.scenario-facts dt { color: var(--text-2); }
+.scenario-facts dd { margin: 0; color: var(--text-1); }
 
 /* ── Info tooltip ── */
 .info-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 5px; }
