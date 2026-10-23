@@ -391,7 +391,7 @@ html, body, #root {
   font-family: var(--font-mono); font-size: 11px;
   color: var(--accent-verified); line-height: 1.5;
 }
-.step-evidence .telemetry { color: var(--accent-partial); margin-top: 4px; }
+.step-evidence .evidence-label { color: var(--text-2); }
 
 /* ── Fix Cards ── */
 .fix-list { display: flex; flex-direction: column; gap: 12px; }

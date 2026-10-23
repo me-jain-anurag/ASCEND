@@ -40,7 +40,11 @@ export interface PathsResponse {
 }
 
 // ─── Verify ───────────────────────────────────────────────────────────────────
-export interface VerifyEvidence { technique: string; exit_code: number; stdout: string; telemetry: string; }
+export interface VerifyEvidence {
+  technique: string; exit_code: number; stdout: string; telemetry: string;
+  /** What stdout is, e.g. "whoami on app01" or "root-only canary read". */
+  check?: string;
+}
 export interface VerifyStep {
   step_number: number;
   verified: boolean;

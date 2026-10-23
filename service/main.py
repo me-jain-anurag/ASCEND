@@ -626,6 +626,25 @@ def _simulate_lab_path(runnable: list[dict]) -> dict:
     return {"edges": edges}
 
 
+def _evidence_check(technique: str, target_host: str, status: str, simulated: bool) -> str:
+    """What a step's stdout is, so the dashboard can label it.
+
+    The labels follow the success signals in verifier/signal.py: a lateral SSH
+    hop passes when `whoami` on the target prints the expected user, and an
+    escalation passes when the root-only canary file is read. Anything else
+    (a failure, a skipped step) is plain command output.
+    """
+    if simulated:
+        return "simulated (Docker unreachable)"
+    if status != "escalated":
+        return "output"
+    if "T1021.004" in technique or "T1550" in technique:
+        return f"whoami on {target_host}"
+    if technique.startswith(("T1548", "T1068", "T1611")):
+        return "root-only canary read"
+    return "output"
+
+
 @app.post("/api/verify")
 def verify_paths():
     """Execute each enumerated path in the lab and report what actually worked.
@@ -671,6 +690,7 @@ def verify_paths():
                 # Docker daemon offline or container not up — use lab simulation
                 outcome = None
 
+        simulated = outcome is None and bool(runnable)
         if outcome is None:
             outcome = _simulate_lab_path(runnable) if runnable else {
                 "status": "failed", "edges": [], "not_executable": []
@@ -714,6 +734,10 @@ def verify_paths():
                     "technique": step["vector"]["technique"],
                     "exit_code": 0 if ok else 1,
                     "stdout": (data.get("evidence") or "")[:400],
+                    "check": _evidence_check(
+                        step["vector"]["technique"], step["target_host"],
+                        status, simulated,
+                    ),
                     # No syscall telemetry is captured yet; verifier/telemetry.py
                     # is an interface with no Falco behind it. Saying so beats
                     # printing a plausible-looking auditd line that nothing

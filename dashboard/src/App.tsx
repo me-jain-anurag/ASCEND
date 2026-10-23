@@ -248,6 +248,15 @@ function OverviewTab({
                   but the path contains a step this lab cannot run. Expand a path
                   to see which one, and why.
                 </div>
+                {/* Said once here rather than under every step: the API marks
+                    each step's telemetry "not captured" until Falco is wired. */}
+                {Object.values(verifyData.results).some(r =>
+                  r.steps.some(s => s.evidence.telemetry?.startsWith('not captured'))) && (
+                  <div style={{ fontSize: 11, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    <strong>Telemetry</strong>: syscall-level capture is not built yet
+                    (Falco integration pending), so steps show command output only.
+                  </div>
+                )}
                 <div style={{ fontSize: 11, color: 'var(--text-2)' }}>
                   Run ID: <span style={{ fontFamily: 'var(--font-mono)' }}>{verifyData.execution_run_id}</span>
                 </div>

@@ -221,8 +221,8 @@ export default function PathList({
                           {/* Verified evidence */}
                           {stepVerify && sStatus !== 'not_executable' && (
                             <div className="step-evidence">
-                              <div>$ {stepVerify.evidence.stdout}</div>
-                              <div className="telemetry">{stepVerify.evidence.telemetry}</div>
+                              <span className="evidence-label">{stepVerify.evidence.check ?? 'output'} →</span>{' '}
+                              {stepVerify.evidence.stdout}
                             </div>
                           )}
 
