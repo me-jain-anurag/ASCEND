@@ -139,7 +139,9 @@ evaluation with **before/after remediation proof**, and the report/paper.
 
 ### Milestone S2-M4 — Dashboard, risk scoring, demo polish (Person C) (≈ 4 weeks)
 - Risk score = a simple, explainable combination of exploitability likelihood and asset criticality (write the
-  formula down; keep it explainable in one sentence).
+  formula down; keep it explainable in one sentence). The likelihood term comes from the exploitability scorer, so
+  this waits on it. *(2026-10-24: an interim CVSS-based heuristic score was removed from the dashboard and the
+  API; paths are not scored until the scorer exists.)*
 - Polish the network/path visualisation, remediation panel, and before/after view; script the final demo.
 - **Definition of done:** the full demo from doc 05 §2 runs end to end.
 

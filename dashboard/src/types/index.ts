@@ -21,15 +21,10 @@ export interface PathStep {
   vector: Vector; credential: Credential | null;
   description: string; verified: boolean | null;
 }
-export interface RiskFactors {
-  severity: number; asset_weight: number; confidence: number;
-  length_penalty: number; formula: string; notes: string;
-}
 export interface AttackPath {
   path_id: string; name: string; length: number;
   entry_host: string; crown_jewel_host: string;
   overall_verified: boolean | null;
-  risk_score?: number; risk_factors?: RiskFactors;
   steps: PathStep[];
 }
 export interface PathsResponse {

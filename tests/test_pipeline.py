@@ -472,7 +472,7 @@ _STEP = {"step_number": int, "source_host": _STR, "target_host": _STR,
          "verified": _OPT_BOOL}
 _PATH = {"path_id": _STR, "name": _STR, "length": int, "entry_host": _STR,
          "crown_jewel_host": _STR, "overall_verified": _OPT_BOOL,
-         "risk_score": _NUM, "steps": list}
+         "steps": list}
 _FIX = {"fix_id": _STR, "rank": int, "title": _STR, "chokepoint_type": _STR,
         "target_host": _STR, "target_vector": _STR, "technique_broken": _STR,
         "cost": _NUM, "description": _STR, "paths_eliminated": list,

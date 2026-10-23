@@ -700,3 +700,35 @@ Known gap, not fixed here: on a page **reload** while a fix is applied,
 
 - `service/main.py`: Added `_simulate_lab_path` fallback when the Docker daemon is offline (e.g. running on Windows host without active Linux containers). When Docker is unreachable, `/api/verify` returns the verified ground-truth results of the lab (3 verified paths with suid_find/sudo_tar, 3 partial paths with DirtyPipe reporting `not_executable`) instead of throwing an unhandled `503 DockerException`.
 - `dashboard/src/App.tsx`: Decoupled `POST /api/verify` from the core graph data queries (`/api/network`, `/api/enumerate`, `/api/remediation`, `/api/status`) so the dashboard shell, network topology, and attack paths render immediately and reliably. Added loading/error state handling to the "Run Verifier" button.
+
+## 38. Path risk score removed until the exploitability scorer exists
+
+The score shown on each attack path was a placeholder heuristic, not the
+planned score. Doc 03 S2-M4 defines risk as exploitability likelihood × asset
+criticality, and the likelihood term needs the Semester 2 exploitability
+scorer, which does not exist yet. The heuristic it was replaced with was:
+
+    risk = severity × asset_weight × confidence − length_penalty, clamped 0–10
+
+- `severity`: the highest CVSS of any vector in the path, including the
+  credential-harvest vector that is collapsed into a lateral hop.
+- `asset_weight`: 0.5 + 0.5 × (crown-jewel `asset_value` ÷ 100), with a
+  missing value treated as 50. It is the same for every path, since they all
+  end at the same crown jewel.
+- `confidence`: 0.85 if any vector in the path came from a `declared` fact
+  (e.g. a kernel version), otherwise 1.0.
+- `length_penalty`: 0.4 per step beyond the shortest path in the current
+  graph.
+
+In practice this was almost entirely max CVSS: asset weight is constant
+across paths, and confidence and length only nudged the result.
+
+- `service/main.py`: `_build_paths_from_enumerator` no longer computes
+  `risk_score` or `risk_factors`; the paths response drops both fields.
+- `dashboard/src/components/PathList.tsx`: risk badge and its breakdown
+  tooltip removed. `types/index.ts`: `RiskFactors`, `risk_score`,
+  `risk_factors` removed. `index.css`: the risk-badge and breakdown styles
+  removed.
+- `dashboard/src/components/DocsPanel.tsx`: the formula section is replaced
+  by a note that paths are not scored until the scorer exists.
+- `tests/test_pipeline.py`: `risk_score` dropped from the path contract.

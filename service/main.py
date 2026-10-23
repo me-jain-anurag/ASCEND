@@ -179,7 +179,6 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
       that the frontend type system has no shape for.
     - source_account / target_account are looked up from facts["accounts"] by
       (host, privilege). username defaults to the host's known service account.
-    - risk_score = max(cvss) across all real vectors in the path.
     - overall_verified = null (verifier doesn't exist yet).
     - path_id comes from `id_map` (signature -> baseline id) when supplied, so
       a path keeps its id after a fix removes some of its siblings. Without a
@@ -213,41 +212,8 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
     result = []
     id_map = id_map or {}
 
-    # Crown-jewel asset value scales a path's impact (how much the target is
-    # worth). Normalised to 0–1; a missing value falls back to a mid weight.
-    _crown_host = facts.get("crown_jewel", {}).get("host")
-    _crown_asset = next(
-        (h.get("asset_value", 50) for h in facts.get("hosts", [])
-         if h.get("hostname") == _crown_host),
-        50,
-    )
-    asset_weight = 0.5 + 0.5 * (min(_crown_asset, 100) / 100.0)
-
-    # Risk is filled in a second pass below: the directness penalty is relative
-    # to the shortest path in THIS graph, which is only known once all built.
-    risk_inputs: list[tuple] = []
-
     for path_idx, raw_path in enumerate(raw_paths, 1):
         path_id = id_map.get(_path_signature(raw_path), f"path-{path_idx:02d}")
-        # Severity + confidence are read from every vector the path uses —
-        # including the credential-harvest vector that gets collapsed into a
-        # hop below, so it still counts toward the path's severity.
-        _path_vecs = [
-            vector_map[rs["vector_id"]]
-            for rs in raw_path
-            if rs.get("vector_id") and rs.get("vector_id") in vector_map
-        ]
-        _cvsses = [v.get("cvss", 0.0) for v in _path_vecs if v.get("cvss")]
-        severity = max(_cvsses) if _cvsses else 0.0
-        # A vector derived from a DECLARED fact (e.g. a kernel version a shared
-        # container cannot actually run) is not execution-observed, so a path
-        # that leans on one is less certain. This mirrors the project's
-        # observed-over-declared stance instead of scoring them identically.
-        declared = any(
-            (v.get("features", {}) or {}).get("provenance") == "declared"
-            for v in _path_vecs
-        )
-        confidence = 0.85 if declared else 1.0
         # ── Collapse cred-harvest steps into their adjacent lateral step ─────
         # Pass 1: collect pending credentials keyed to the next host-to-host step
         pending_cred: dict | None = None
@@ -351,36 +317,9 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
             "entry_host":      entry["host"],
             "crown_jewel_host": crown["host"],
             "overall_verified": None,
-            "risk_score":      0.0,   # filled by the second pass below
             "steps":           steps,
         }
         result.append(path_obj)
-        risk_inputs.append((path_obj, severity, confidence, len(steps)))
-
-    # ── Second pass: directness-adjusted risk, now that all lengths are known ──
-    # risk = severity × asset_weight × confidence − length_penalty, clamped 0–10.
-    # It is a HEURISTIC prioritisation aid, not ground truth — execution (the
-    # verifier) is the project's real signal. The breakdown rides along so the
-    # dashboard can show exactly how each figure was reached.
-    min_len = min((ln for _, _, _, ln in risk_inputs), default=1)
-    for path_obj, severity, confidence, length in risk_inputs:
-        length_penalty = round(0.4 * (length - min_len), 2)
-        raw = severity * asset_weight * confidence - length_penalty
-        path_obj["risk_score"] = round(max(0.0, min(10.0, raw)), 1)
-        path_obj["risk_factors"] = {
-            "severity":       round(severity, 1),
-            "asset_weight":   round(asset_weight, 2),
-            "confidence":     confidence,
-            "length_penalty": length_penalty,
-            "formula": "severity × asset_weight × confidence − length_penalty (0–10)",
-            "notes": (
-                "severity = highest CVSS of any vector in the path; "
-                "asset_weight scales by the crown jewel's asset value; "
-                "confidence = 0.85 when the path relies on a declared "
-                "(not execution-observed) fact, else 1.0; "
-                "length_penalty favours shorter, more direct paths."
-            ),
-        }
 
     return result
 

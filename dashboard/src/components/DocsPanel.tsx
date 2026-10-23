@@ -15,10 +15,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Formula({ children }: { children: ReactNode }) {
-  return <div className="doc-formula">{children}</div>;
-}
-
 export default function DocsPanel() {
   return (
     <div className="doc-body">
@@ -57,27 +53,12 @@ export default function DocsPanel() {
         </p>
       </Section>
 
-      <Section title="Path risk score">
+      <Section title="Path risk score — not yet scored">
         <p>
-          A heuristic 0–10 prioritisation aid for ordering paths. It is not
-          ground truth — execution is. Each path&rsquo;s score is:
-        </p>
-        <Formula>
-          risk = severity × asset_weight × confidence − length_penalty
-          &nbsp;(clamped 0–10)
-        </Formula>
-        <ul className="doc-list">
-          <li><b>severity</b> — the highest CVSS of any vector used in the path.</li>
-          <li><b>asset_weight</b> — 0.5 + 0.5 × (crown-jewel asset value ÷ 100):
-            a route to a more valuable target scores higher.</li>
-          <li><b>confidence</b> — 1.0 normally, 0.85 when the path relies on a
-            <i> declared</i> (not execution-observed) fact, so unprovable routes
-            rank below proven ones.</li>
-          <li><b>length_penalty</b> — 0.4 per hop beyond the shortest path in the
-            graph: shorter, more direct routes score higher.</li>
-        </ul>
-        <p className="doc-muted">
-          Hover the <i>Risk</i> value on any path to see its exact breakdown.
+          Paths are not given a risk score yet. The score will come from the
+          exploitability scorer planned for Semester 2, which predicts how likely
+          each vector is to work. Until then the dashboard shows only what was
+          derived from the facts or proven by execution.
         </p>
       </Section>
 
@@ -117,7 +98,7 @@ export default function DocsPanel() {
           fingerprints, <span className="doc-code">sudo -l</span>, open ports,
           reachability). Per-host kernel versions are <b>declared</b>, because
           containers share one kernel — any vector derived from a declared fact
-          is marked as such and lowers that path&rsquo;s risk confidence.
+          is marked as such.
         </p>
       </Section>
 

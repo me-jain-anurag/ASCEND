@@ -13,7 +13,7 @@ confirmation.
 | Graph storage | NetworkX / Neo4j | **NetworkX** (move to Neo4j only on a *measured* performance problem) | Graphs (S1-M2/M3) | Person B |
 | First model family | Logistic regression / gradient-boosted trees | **Logistic regression first**, then gradient-boosted trees | Scorer (S1-M5) | Person B |
 | Graph neural network | Include / defer | **Defer to Semester 2 stretch** | Scorer (S2-M3) | Person B |
-| Risk-score formula | Weighted product / learned weighting | **Weighted product** of likelihood × asset criticality (explainable in one sentence) | Risk (S2-M4) | Person C |
+| Risk-score formula | Weighted product / learned weighting | **Weighted product** of likelihood × asset criticality (explainable in one sentence). Deferred to Semester 2: the likelihood term needs the exploitability scorer. The interim CVSS heuristic was removed on 2026-10-24. | Risk (S2-M4) | Person C |
 | Dashboard component library | shadcn/ui / Mantine | **shadcn/ui** | Dashboard | Person C |
 | Runs per scenario class | driven by the size of the rarest test class | **Plan the count backwards** from "the rarest class still has a usable test set" | Dataset (S1-M4) | Person A + B |
 
