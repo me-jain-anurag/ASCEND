@@ -66,12 +66,14 @@ with the reason — never quietly rounded up.
 
 ```mermaid
 flowchart TB
-    subgraph LAB["Isolated lab — 3 containers, no internet route"]
+    subgraph LAB["Isolated lab — 4 containers, no internet route"]
         direction LR
         WEB["web01<br/>entry foothold"]
         APP["app01<br/>pivot"]
+        CI["ci01<br/>build server"]
         DB["db01<br/>CROWN JEWEL"]
         WEB --> APP --> DB
+        WEB --> CI --> DB
     end
 
     SCOPE[["scope.yaml<br/>techniques · detection rules · fix costs"]]
@@ -120,8 +122,9 @@ to test whether the reasoning was right.
 
 ### The lab
 
-Three Docker containers on two isolated networks — no internet, nothing exposed
-to your machine. Weaknesses are deliberately planted:
+Four Docker containers on two isolated networks — no internet, nothing exposed
+to your machine. Weaknesses are deliberately planted on three of them; the
+fourth, `ci01` (a build server), is in the topology but has none planted yet:
 
 | Host | Weakness | Technique |
 |---|---|---|
@@ -131,8 +134,8 @@ to your machine. Weaknesses are deliberately planted:
 | `db01` | a setuid-root `find` | T1548.001 |
 | `db01` | a kernel declared vulnerable to DirtyPipe | T1068 |
 
-`app01` is dual-homed; `web01` and `db01` share no network, so they cannot reach
-each other. That segmentation matters later.
+`app01` and `ci01` are dual-homed; `web01` and `db01` share no network, so they
+cannot reach each other. That segmentation matters later.
 
 ### The collector
 
@@ -239,7 +242,7 @@ never tell you.
 | Module | Job | Read |
 |---|---|---|
 | `scope.yaml` | Single source of truth: techniques, detection rules, fix costs | — |
-| `lab/` | The three machines, with weaknesses planted | [`lab/README.md`](lab/README.md) |
+| `lab/` | The four machines, with weaknesses planted | [`lab/README.md`](lab/README.md) |
 | `collectors/` | Reads the machines → `facts.json` | [`collectors/README.md`](collectors/README.md) |
 | `knowledge_graph/` | Public reference data so findings are named properly | — |
 | `enumerator/` | Finds every route foothold → crown jewel | [`enumerator/README.md`](enumerator/README.md) |

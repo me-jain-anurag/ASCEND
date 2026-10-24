@@ -1,13 +1,15 @@
 # ASCEND isolated lab — docs/02 section 6, docs/05 section 1.
 #
-# Three Linux containers on TWO private bridge networks, both `internal: true`
+# Four Linux containers on TWO private bridge networks, both `internal: true`
 # (no route to the internet or the campus network). The two-network layout is
-# deliberate: app01 is dual-homed, so web01 can reach app01 and app01 can reach
-# db01, but web01 CANNOT reach db01. collectors/probes/reachability.py discovers
-# that segmentation by attempting real TCP connections — it is not declared.
+# deliberate: app01 and ci01 are dual-homed, so web01 can reach both and both
+# can reach db01, but web01 CANNOT reach db01. collectors/probes/reachability.py
+# discovers that segmentation by attempting real TCP connections — it is not
+# declared.
 #
-#   [ dmz ]  web01 ──► app01 ──► db01  [ core ]
-#              entry            crown jewel
+#                 ┌──► app01 ──┐
+#   [ dmz ] web01 ┤            ├──► db01 [ core ]
+#           entry └──► ci01  ──┘    crown jewel
 #
 # No ports are published to the host. Nothing here is reachable from outside the
 # Docker bridges. Bring it up with ./lab/up.sh (which generates the deploy key
@@ -45,6 +47,19 @@ services:
     container_name: ascend-app01
     hostname: app01
     networks: [dmz, core]      # dual-homed: the pivot between the two segments
+    restart: unless-stopped
+
+  ci01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROLE: ci01
+        # A current, patched kernel branch: the T1068 rule must decline it.
+        DECLARED_KERNEL: "6.1.76"
+    container_name: ascend-ci01
+    hostname: ci01
+    networks: [dmz, core]      # dual-homed: a second route between the segments
     restart: unless-stopped
 
   db01:

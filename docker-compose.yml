@@ -31,6 +31,7 @@ services:
     depends_on:
       - web01
       - app01
+      - ci01
       - db01
     networks:
       - ascend_dmz

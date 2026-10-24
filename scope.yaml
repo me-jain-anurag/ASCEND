@@ -199,6 +199,11 @@ inventory:
     app01:
       role: app
       asset_value: 30
+    ci01:
+      role: ci
+      # Holds deployment access to production in the intended scenario, so it
+      # is worth more than the app tier but less than the data it deploys to.
+      asset_value: 50
     db01:
       role: database
       asset_value: 100

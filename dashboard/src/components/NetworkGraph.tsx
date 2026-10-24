@@ -10,14 +10,17 @@ interface Props {
 }
 
 /**
- * Fixed left-to-right positions along the attack direction.
- * web01 → app01 → db01: entry → pivot → crown jewel.
+ * Fixed left-to-right positions along the attack direction: [column, row].
+ * web01 → app01 / ci01 → db01: entry → the two pivots → crown jewel.
+ * Row is -1 (top) .. 1 (bottom), so the two pivots sit one above the other.
  * The physical story should be immediately legible without reading labels.
+ * A host not listed here goes in the middle column, below the known pivots.
  */
-const HOST_ORDER: Record<string, number> = {
-  web01: 0,
-  app01: 1,
-  db01:  2,
+const HOST_POS: Record<string, [number, number]> = {
+  web01: [0, 0],
+  app01: [1, -1],
+  ci01:  [1, 1],
+  db01:  [2, 0],
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -26,6 +29,7 @@ const ROLE_LABELS: Record<string, string> = {
   db:       'Database',
   database: 'Database',
   'jump host': 'Jump Host',
+  ci:       'Build Server',
 };
 
 export default function NetworkGraph({ network, activePath, verifiedPathIds, partialPathIds }: Props) {
@@ -169,13 +173,13 @@ export default function NetworkGraph({ network, activePath, verifiedPathIds, par
         name: 'preset',
         positions: (node: any) => {
           const hostname = node.data('id');
-          const order = HOST_ORDER[hostname] ?? 0;
+          const [col, row] = HOST_POS[hostname] ?? [1, 2];
           const containerW = containerRef.current?.clientWidth ?? 600;
           const containerH = containerRef.current?.clientHeight ?? 400;
           const usableW = containerW - 200;
-          const x = 100 + order * (usableW / 2);
-          const y = containerH / 2 - 20; // leave room for legend at bottom
-          return { x, y };
+          const x = 100 + col * (usableW / 2);
+          const midY = containerH / 2 - 20; // leave room for legend at bottom
+          return { x, y: midY + row * Math.min(80, containerH / 5) };
         },
         padding: 40,
       },

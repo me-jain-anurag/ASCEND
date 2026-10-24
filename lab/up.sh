@@ -8,13 +8,14 @@ bash "$LAB/bootstrap.sh"
 echo "building and starting the lab..."
 docker compose -f "$LAB/docker-compose.yml" up -d --build
 
-echo -n "waiting for sshd on all three hosts"
+HOSTS=(ascend-web01 ascend-app01 ascend-ci01 ascend-db01)
+echo -n "waiting for sshd on all ${#HOSTS[@]} hosts"
 for _ in $(seq 1 30); do
     ready=0
-    for c in ascend-web01 ascend-app01 ascend-db01; do
+    for c in "${HOSTS[@]}"; do
         docker exec "$c" sh -c 'ss -ltn 2>/dev/null | grep -q ":22 "' 2>/dev/null && ready=$((ready+1))
     done
-    [[ $ready -eq 3 ]] && { echo " ready."; break; }
+    [[ $ready -eq ${#HOSTS[@]} ]] && { echo " ready."; break; }
     echo -n "."; sleep 1
 done
 

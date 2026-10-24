@@ -1,14 +1,20 @@
 # `lab/` — the isolated Docker lab
 
-Three Linux containers carrying real, planted weaknesses. The fact collectors
-read this lab; the enumerator analyses what they find.
+Four Linux containers, three of them carrying real, planted weaknesses. The
+fact collectors read this lab; the enumerator analyses what they find.
 
 ```
         [ ascend_dmz ]            [ ascend_core ]
-   web01 ──────────► app01 ──────────────► db01
-   entry             (dual-homed pivot)     crown jewel
-   www-data          appuser                dbuser
+                 ┌──► app01 ──────────┐
+   web01 ────────┤    appuser         ├──► db01
+   entry         └──► ci01  ──────────┘    crown jewel
+   www-data           ciuser               dbuser
+                 (both dual-homed pivots)
 ```
+
+`ci01` (build server) is part of the topology but has **no planted weaknesses
+yet**: it is probed and appears in the network graph, but adds no attack path
+until weaknesses are planted on it and listed in the table below.
 
 Both networks are `internal: true` — **no route to the internet or the campus
 network**, and no ports published to your machine. Nothing in here is reachable
@@ -164,7 +170,7 @@ name that would not resolve.
 ## Files
 
 ```
-docker-compose.yml   two internal networks, three services
+docker-compose.yml   two internal networks, four services
 Dockerfile           one image, parameterised by ROLE and DECLARED_KERNEL
 entrypoint.sh        generate host keys, run sshd in the foreground
 bootstrap.sh         generate the shared deploy keypair into keys/ (gitignored)
@@ -173,6 +179,7 @@ seed/common.sh       helpers: create accounts, authorize keys, lock passwords
 seed/web01.sh        plants the world-readable key
 seed/app01.sh        plants the NOPASSWD sudo rule, accepts the deploy key
 seed/db01.sh         accepts the deploy key, declares the vulnerable kernel
+seed/ci01.sh         account and baseline hardening only; nothing planted yet
 ```
 
 `keys/` is gitignored and regenerated per clone. The keypair only ever

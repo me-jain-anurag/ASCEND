@@ -42,7 +42,7 @@ The terminal that starts the API must be able to run `docker ps` without
 Then prove the paths are real by actually running them in the lab:
 
 ```bash
-.venv/bin/python -m verifier check        # canary present on all three hosts?
+.venv/bin/python -m verifier check        # canary present on every host a technique runs on?
 ```
 
 Clicking **Verify** on the dashboard executes each step of each path in the

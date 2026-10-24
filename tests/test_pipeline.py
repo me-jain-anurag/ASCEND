@@ -390,7 +390,8 @@ def test_api_contract_and_apply_reset_loop():
     client.post("/api/reset")
 
     net = client.get("/api/network").json()
-    assert {h["hostname"] for h in net["hosts"]} == {"web01", "app01", "db01"}
+    # Every host the lab inventory declares, and no other.
+    assert {h["hostname"] for h in net["hosts"]} == set(SCOPE["inventory"]["hosts"])
     assert all("kernel_version" in h and "accounts" in h for h in net["hosts"])
 
     enum = client.post("/api/enumerate", json={}).json()
