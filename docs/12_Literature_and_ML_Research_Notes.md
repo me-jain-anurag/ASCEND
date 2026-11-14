@@ -5,7 +5,8 @@
 > **Citation policy:** 2024+ acceptable, prefer 2025+. Every entry here is a
 > *candidate* — verify venue/DOI against the primary source before it enters the
 > paper. Numbers quoted from vendor blogs are marked unverified and must not be
-> cited.
+> cited. Entries marked **[verified 2026-11-14]** had their title/authors/venue
+> checked against the primary source.
 
 Each entry follows the project's reflective format: **contributes** (what we
 take) / **does not do** (the gap ASCEND fills).
@@ -22,9 +23,12 @@ science of cyber graphs, 2025), Plaka et al. (topology-aware EV patching, ICISSP
 
 ## Lane 2 — Learned prediction (the base-paper lane)
 - **François, Arduin, Merad — Physics-Informed GNN for Attack Path Prediction**,
-  *J. Cybersecur. Privacy* 5(2):15, Apr 2025 (doi:10.3390/jcp5020015). **This is
-  the base paper.** Public replication repo: `mbdlrocks/PhD_Replication_Package`
-  (Physics-Informed-GNN (PIGNN)) — code, dataset, pretrained weights.
+  *J. Cybersecur. Privacy* (ISSN 2624-800X) 5(2):15, Apr 2025
+  (doi:10.3390/jcp5020015). **[verified 2026-11-14]** **This is the base paper.**
+  Public replication repo `mbdlrocks/PhD_Replication_Package` **confirmed real**
+  (GPL-3.0, PhD-thesis replication package) with a `Physics-Informed-GNN (PIGNN)`
+  folder. Framework / dataset format not yet inspected — browse the folder before
+  committing to it as a runnable comparator (follow-up 1).
   - **Contributes:** a GNN whose loss penalises predicted paths that violate
     graph-theoretic domain constraints. **Runnable comparator for Phase II.**
   - **Does not do:** predicts; never executes to verify. ASCEND's delta exactly.
@@ -45,10 +49,11 @@ science of cyber graphs, 2025), Plaka et al. (topology-aware EV patching, ICISSP
     ASCEND uses deterministic execution + per-host canary, no trained policy.
 
 ## Lane 4 — Detection (shows our planted techniques are realistic)
-- **LMDetect — time-aware subgraph classification on auth logs**, arXiv
-  2411.10279, Nov 2024. Heterogeneous auth multigraph, subgraph classification,
-  multi-scale attention; two real auth-log datasets. *(replaces an older
-  lateral-movement detection cite)*
+- **Zhou, Yao, Chen, Yu, Xuan, Yang — LMDetect: Lateral Movement Detection via
+  Time-aware Subgraph Classification on Authentication Logs**, arXiv 2411.10279,
+  Nov 2024. **[verified 2026-11-14]** Heterogeneous auth multigraph, time-aware
+  subgraph generator, multi-scale attention; two real auth-log datasets (unnamed
+  in the abstract). *(replaces an older lateral-movement detection cite)*
 - Container-escape detection (dependency graph; CNI) — already cited.
   - **Contributes:** confirms our planted techniques (reused key, container
     escape) mirror real studied attacks.
@@ -57,18 +62,28 @@ science of cyber graphs, 2025), Plaka et al. (topology-aware EV patching, ICISSP
 ## Lane 5 — Scanner/SCA integration, reachability & exploit-likelihood (NEW)
 This lane justifies assessment mode's inputs and the scanner baseline. It is
 missing from the current paper and must be added.
-- **EPSS v4**, FIRST, released 17 Mar 2025. ML forecast of the probability a CVE
-  is exploited in the next 30 days; daily-recalculated; inputs include ExploitDB/
+- **EPSS**, FIRST. ML forecast of the probability a CVE is exploited in the next
+  30 days (score 0–1 + percentile), recalculated daily; inputs include ExploitDB/
   Metasploit, CISA KEV, scanner/threat telemetry. Cite the EPSS paper (Jacobs et
-  al.) + first.org/epss. *(the "1,600 variables" vendor figure is unverified)*
+  al.) + first.org/epss. *(v4 is the current model; the exact "17 Mar 2025" date
+  and the "1,600 variables" vendor figure are unverified — check first.org/epss.)*
   - **Take:** ingest EPSS as a per-vector **feature**, do not reinvent it.
 - **NIST CSWP 41 — Likely Exploited Vulnerabilities (LEV)**, May 2025. Proposes a
   metric to augment EPSS. *(candidate)*
-- **AEAS — Actionable Exploit Assessment System**, arXiv 2509.17832, 2025.
-  *(candidate — read for exploit-actionability scoring)*
-- **Survey on Vulnerability Prioritization: Taxonomy, Metrics**, arXiv 2502.11070,
-  Feb 2025. Notes exploitability metrics dominate ML prioritisation methods.
-  Good survey anchor for the lane.
+- **Shen et al. — AEAS: Actionable Exploit Assessment System**, arXiv 2509.17832,
+  Sep 2025. **[verified 2026-11-14]** Static-analyses exploit code + docs to score
+  how *actionable* an exploit is (does working code exist, does it function, how
+  hard to set up); ranks exploits; built into PentestAgent's planner.
+  - **Sharp contrast for the paper:** AEAS's own framing is that CVSS/EPSS give
+    probabilities *without checking working exploit code exists*. AEAS checks the
+    code exists; **ASCEND goes one step further and executes it** to a canary.
+    Natural three-rung ladder to draw: severity (CVSS) → likelihood (EPSS) →
+    code-exists (AEAS) → **executed (ASCEND)**.
+- **Jiang, Oo, Meng, Lim, Sikdar — A Survey on Vulnerability Prioritization:
+  Taxonomy, Metrics, and Research Challenges**, arXiv 2502.11070, Feb 2025.
+  **[verified 2026-11-14]** 82 studies; taxonomy = Severity / Exploitability /
+  Contextual factors / Predictive indicators / Aggregation. Good survey anchor for
+  the lane, and its taxonomy maps onto our scorer's feature groups.
 - **SCA reachability analysis** (Cycode, Sonar, Checkmarx, Arnica — vendor, 2025):
   flag a CVE only if the vulnerable code is actually callable from an entry
   point. Combined with CVSS/KEV/EPSS, not used as proof.
