@@ -1,0 +1,32 @@
+# T1548.003 decoy — NOPASSWD sudo rule with NO shell escape.
+# A NEGATIVE CONTROL, not a vector. The binary (e.g. /bin/ls) is NOPASSWD but has
+# no documented shell escape, so scope.yaml rules.sudo must examine it and DECLINE
+# to emit a vector. A scanner that flags every NOPASSWD rule produces a false
+# positive here. Decoys feed the false-positive-rate metric (docs/11 section 5).
+id: decoy_nopasswd
+title: "NOPASSWD sudo rule with no shell escape (decoy)"
+technique: T1548.003
+executable_in: either
+kind: decoy
+summary: >-
+  {user} may run {binary} as root with no password, but {binary} has no shell
+  escape, so it is not a privilege-escalation vector. The collector must decline it.
+
+needs: [account]
+
+params:
+  binary: "/bin/ls"
+
+# Its own sudoers file so placement is order-independent of the real rule; sudo
+# aggregates every file in /etc/sudoers.d, so `sudo -l` still shows both.
+seed: |
+  cat > /etc/sudoers.d/{user}-reports <<'DECOY'
+  {user} ALL=(root) NOPASSWD: {binary}
+  DECOY
+  chmod 0440 /etc/sudoers.d/{user}-reports
+  visudo -cf /etc/sudoers.d/{user}-reports
+
+# A decoy is never a vector, so there is nothing for the verifier to execute.
+verify:
+  adapter: null
+  scope: decoy

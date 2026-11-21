@@ -1,0 +1,35 @@
+# T1552.001 — Unsecured Credentials in Files.
+# A private SSH key left other-readable. The finding is the MODE (0644), not the
+# presence of a key: the same key at 0600 is a negative control, not a vector.
+id: readable_ssh_key
+title: "World-readable SSH private key"
+technique: T1552.001
+executable_in: either
+summary: >-
+  The shared deploy private key is installed at {home}/.ssh/id_rsa readable by
+  every account on the host (mode 0644). probes/cred_files.py reports it because
+  it is other-readable; it would not at 0600.
+
+needs: [account]
+
+# {key_src} is the staged private key the generator copies in (bootstrap keypair).
+seed: |
+  install -d -m 755 -o {user} -g {user} {home}/.ssh
+  install -m 644 -o {user} -g {user} {key_src} {home}/.ssh/id_rsa
+
+realism: |
+  cat > {home}/deploy.sh <<'DEPLOY'
+  #!/bin/sh
+  # Nightly build push. Runs as {user} from cron.
+  ssh -i {home}/.ssh/id_rsa appuser@app01 '/opt/app/reload.sh'
+  DEPLOY
+  chmod 755 {home}/deploy.sh
+  chown {user}:{user} {home}/deploy.sh
+
+verify:
+  adapter: config_abuse
+  check: credential_read
+  scope: local
+  start_user: "{user}"
+  params:
+    key_path: "{home}/.ssh/id_rsa"

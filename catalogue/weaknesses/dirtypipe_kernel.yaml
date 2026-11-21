@@ -1,0 +1,41 @@
+# T1068 — Exploitation for Privilege Escalation (DirtyPipe, CVE-2022-0847).
+# A KERNEL bug, so this is NOT a seed-planted file: it is a host property set via
+# the image's DECLARED_KERNEL build-arg. In a container the kernel is shared with
+# the host machine, so this can only be DECLARED (provenance: declared) and the
+# verifier reports not_executable. On a VM with a genuinely vulnerable kernel it
+# becomes observed and executable — hence executable_in: vm.
+#
+# ASCEND never ships exploit code. The verifier runs a bring-your-own binary left
+# at exploit_ref by Workstream A, and only after it confirms the running kernel is
+# actually in range (see verifier/adapters/anchor_cve.py).
+id: dirtypipe_kernel
+title: "Kernel vulnerable to DirtyPipe (CVE-2022-0847)"
+technique: T1068
+executable_in: vm
+summary: >-
+  The host declares a kernel in the DirtyPipe range. Only genuinely exploitable
+  where the running kernel is really vulnerable (a VM), never in a shared-kernel
+  container.
+
+# No seed fragment: this weakness sets a build property, not a file.
+host_build:
+  declared_kernel: "5.16.0"
+
+params:
+  cve: "CVE-2022-0847"
+  exploit_ref: "/opt/exploits/CVE-2022-0847/exploit"
+
+verify:
+  adapter: anchor_cve
+  check: canary
+  scope: local
+  start_user: "{user}"
+  params:
+    cve: "{cve}"
+    exploit_ref: "{exploit_ref}"
+    requires_kernel:
+      affected_from: "5.8.0"
+      fixed_versions: ["5.10.102", "5.15.25", "5.16.11"]
+    declared_kernel_note: >-
+      Proving this step for real requires a host running a genuinely affected
+      kernel, which a shared-kernel container cannot provide.
