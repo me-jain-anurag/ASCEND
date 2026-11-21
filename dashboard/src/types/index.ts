@@ -37,6 +37,7 @@ export interface PathsResponse {
   /** From the last verify run; null until one has happened. */
   execution_verified?: number | null; execution_partial?: number | null;
   algorithm?: string; facts_source?: string; facts_collected_at?: string | null;
+  negative_controls?: NegativeControl[];
 }
 
 // ─── Verify ───────────────────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ export interface VerifyPathResult {
 }
 export interface VerifyData {
   execution_run_id: string; status: string; timestamp: string;
+  simulated?: boolean;
   summary: { paths_tested: number; paths_verified: number; paths_failed: number; paths_partial?: number; precision?: number; };
   results: Record<string, VerifyPathResult>;
 }
@@ -94,6 +96,14 @@ export interface RemediationData {
   minimum_cover?: { fixes: string[]; size: number; cost: number; covers_all_paths: boolean };
   /** Real list of applied fix ids, read from GET /api/remediation on load. */
   applied_fixes?: string[];
+  ordering_comparison?: {
+    greedy_fixes_to_full_cover: number | null;
+    naive_fixes_to_full_cover: number | null;
+    greedy_cost_to_full_cover: number | null;
+    naive_cost_to_full_cover: number | null;
+    greedy_reaches_cover_no_later: boolean;
+    greedy_cost_no_higher: boolean;
+  };
 }
 
 // ─── Knowledge (techniques & CVEs) ─────────────────────────────────────────────
@@ -120,4 +130,53 @@ export interface StatusMetrics {
 export interface StatusData {
   system: string; version: string; status: string; lab_environment: string;
   summary_metrics: StatusMetrics;
+}
+
+// ─── Benign Negative Controls ─────────────────────────────────────────────────
+export interface NegativeControl {
+  host: string;
+  technique: string;
+  path?: string;
+  rule?: string;
+  cve?: string;
+  reason: string;
+}
+export interface BenignData {
+  scenario: string;
+  hosts_probed: string[];
+  enumerated_paths: number;
+  false_alarms: number;
+  conditions_examined_and_cleared: number;
+  negative_controls: NegativeControl[];
+  summary: string;
+}
+
+// ─── ML Exploitability Scorer ─────────────────────────────────────────────────
+export interface PathScore {
+  path_id: string;
+  joint_probability: number;
+  contains_unverified_step: boolean;
+  steps: Array<{
+    step_number: number;
+    technique: string;
+    host: string;
+    probability: number;
+    confidence: string;
+    basis: string;
+  }>;
+}
+export interface ScorerData {
+  model: {
+    trained: boolean;
+    model_type: string;
+    records_total: number;
+    records_trainable: number;
+    records_excluded_not_executable: number;
+    records_flagged_param_mismatch: number;
+    cv_folds: number;
+    cv_accuracy: number | null;
+    cv_brier_score: number | null;
+    caveats: string[];
+  };
+  path_scores: Record<string, PathScore>;
 }

@@ -18,6 +18,7 @@ from verifier.lab import (
     canary_token,
     container_image_digest,
     exec_as,
+    kernel_release,
     reset,
 )
 from verifier.outcomes import Outcome, append
@@ -124,7 +125,12 @@ def run_one(
         adapter = get_adapter(technique["adapter"])
         result = adapter(ctx)
 
-    # 5. Build and persist outcome
+    # 5. Build and persist outcome (populate kernel_version & host_facts_ref
+    #    so downstream scorer/ training has clean join keys).
+    try:
+        running_kernel = kernel_release(host, prefix=scope.container_prefix)
+    except Exception:
+        running_kernel = ""
     outcome = Outcome(
         run_id=run_id,
         host=host,
@@ -137,6 +143,8 @@ def run_one(
         raw_cmd=result.raw_cmd,
         telemetry_path=cap.path,
         seed=seed,
+        kernel_version=running_kernel,
+        host_facts_ref=f"{host}:{technique['id']}",
         lab_image_digest=container_image_digest(host, prefix=scope.container_prefix),
     )
     append(outcome, path=output_path)

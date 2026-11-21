@@ -16,7 +16,7 @@ import Sidebar from './components/Sidebar';
 import DocsPanel from './components/DocsPanel';
 import TechniquesPanel from './components/TechniquesPanel';
 import InfoTooltip from './components/InfoTooltip';
-import type { KnowledgeData } from './types';
+import type { KnowledgeData, BenignData, ScorerData } from './types';
 
 type Tab = 'overview' | 'network' | 'paths' | 'techniques' | 'remediation' | 'docs';
 
@@ -37,17 +37,18 @@ function tabFromHash(): Tab {
   const raw = window.location.hash.replace(/^#\/?/, '');
   return (TABS as string[]).includes(raw) ? (raw as Tab) : 'overview';
 }
-type Scenario = 'default' | 'benign';
+type Scenario = 'default' | 'multi_branch' | 'benign';
 
 const SCENARIO_TIPS: Record<Scenario, string> = {
   default:
-    'Adversary: an attacker with a low-privilege foothold on the entry host. ' +
-    'ASCEND finds every escalation route to the crown jewel, runs each one in ' +
-    'the lab, and ranks the fixes that break them.',
+    'Adversary (4-Host Lab): low-privilege foothold on web01 to root on db01 ' +
+    'with live execution verification and chokepoint remediation.',
+  multi_branch:
+    'Multi-Branch (app01 + ci01): 8 routes across both pivot tiers plus an ' +
+    'off-route CVSS 8.8 Docker socket, demonstrating 6x lower remediation cost vs. CVSS-first.',
   benign:
-    'Benign look-alike: an admin doing legitimate work that resembles an ' +
-    'attack step (e.g. normal SSH use). ASCEND should report no attack path. ' +
-    'Not available yet: this lab variant has not been built.',
+    'Benign Hardened Baseline: normal legitimate admin configs (0600 keys, safe ' +
+    'sudo /bin/ls, patched kernels). Proves ASCEND reports 0 false alarms.',
 };
 
 /** "22 Oct 2026, 14:27 UTC" — the collector writes ISO timestamps in UTC. */
@@ -349,6 +350,9 @@ export default function App() {
   const [remediation, setRemediation] = useState<RemediationData | null>(null);
   const [status, setStatus] = useState<StatusData | null>(null);
   const [knowledge, setKnowledge] = useState<KnowledgeData | null>(null);
+  const [benignData, setBenignData] = useState<BenignData | null>(null);
+  const [scorerData, setScorerData] = useState<ScorerData | null>(null);
+  const [verifyNotice, setVerifyNotice] = useState<string | null>(null);
 
   // UI states
   const [selectedPath, setSelectedPath] = useState<AttackPath | null>(null);
@@ -364,18 +368,23 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const [net, pth, rem, st, kn] = await Promise.all([
-        api.get<NetworkData>('/api/network'),
-        api.post<PathsResponse>('/api/enumerate', { scenario: sc }),
-        api.get<RemediationData>('/api/remediation'),
+      // Enumerate first so server active_scenario switches cleanly before dependent GETs
+      const pth = await api.post<PathsResponse>('/api/enumerate', { scenario: sc });
+      const [net, rem, st, kn, ben, scr] = await Promise.all([
+        api.get<NetworkData>(`/api/network?scenario=${sc}`),
+        api.get<RemediationData>(`/api/remediation?scenario=${sc}`),
         api.get<StatusData>('/api/status'),
         api.get<KnowledgeData>('/api/knowledge'),
+        api.get<BenignData>('/api/benign'),
+        api.get<ScorerData>(`/api/scores?scenario=${sc}`),
       ]);
       setNetwork(net);
       setPaths(pth);
       setRemediation(rem);
       setStatus(st);
       setKnowledge(kn);
+      setBenignData(ben);
+      setScorerData(scr);
       setAppliedFixes(rem.applied_fixes ?? []);
       setBackendOnline(true);
 
@@ -388,9 +397,12 @@ export default function App() {
         const [st2, pth2] = await fetchRunCounts(sc);
         setStatus(st2);
         setPaths(pth2);
+        setVerifyNotice(null);
       } catch (vErr) {
-        console.warn('In-container verifier currently unavailable (requires Docker):', vErr);
+        const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+        console.warn('In-container verifier unavailable:', vMsg);
         setVerifyData(null);
+        setVerifyNotice(vMsg);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -480,18 +492,15 @@ export default function App() {
 
         {/* Scenario switcher */}
         <div className="scenario-tabs">
-          {(['default', 'benign'] as Scenario[]).map(sc => (
-            // The title sits on a wrapper: a disabled button gets no hover
-            // events in some browsers, so its own title would never show.
+          {(['default', 'multi_branch', 'benign'] as Scenario[]).map(sc => (
             <span key={sc} title={SCENARIO_TIPS[sc]}>
               <button
                 id={`scenario-${sc}`}
                 className={`scenario-tab${scenario === sc ? ' active' : ''}`}
                 onClick={() => handleScenarioChange(sc)}
-                disabled={sc === 'benign'}
               >
-                <span className={`scenario-dot ${sc === 'default' ? 'adversary' : 'benign'}`} />
-                {sc === 'default' ? 'Adversary' : 'Benign'}
+                <span className={`scenario-dot ${sc === 'benign' ? 'benign' : 'adversary'}`} />
+                {sc === 'default' ? 'Adversary' : sc === 'multi_branch' ? 'Multi-Branch' : 'Benign'}
               </button>
             </span>
           ))}
@@ -678,6 +687,42 @@ export default function App() {
                 </div>
               </div>
 
+              {verifyNotice && scenario !== 'benign' && (
+                <div className="error-banner" style={{ marginBottom: 14, borderColor: 'var(--accent-amber)', color: 'var(--accent-amber)' }}>
+                  <AlertTriangle size={14} />
+                  <span>Live verifier offline (honest 503 — no simulated passes): {verifyNotice}</span>
+                </div>
+              )}
+
+              {scenario === 'benign' && benignData && (
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <ShieldCheck size={16} color="var(--accent-verified)" />
+                    <h2>Zero False Alarms — Inspected &amp; Cleared Controls</h2>
+                    <span className="tag tag-green" style={{ marginLeft: 'auto' }}>
+                      {benignData.false_alarms} false alarms · {benignData.conditions_examined_and_cleared} cleared
+                    </span>
+                  </div>
+                  <div className="card-body" style={{ padding: 0 }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr><th>Host</th><th>Technique Checked</th><th>Condition Inspected</th><th>Why Cleared (No Alarm)</th></tr>
+                      </thead>
+                      <tbody>
+                        {benignData.negative_controls.map((nc, idx) => (
+                          <tr key={idx}>
+                            <td><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{nc.host}</span></td>
+                            <td><span className="tag tag-purple">{nc.technique}</span></td>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{nc.path || nc.rule || nc.cve || '—'}</td>
+                            <td style={{ fontSize: 12, color: 'var(--text-1)' }}>{nc.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {loading && !paths ? <Loader /> : paths ? (
                 <PathList
                   paths={paths.paths}
@@ -687,6 +732,7 @@ export default function App() {
                   tactics={Object.fromEntries(
                     (knowledge?.techniques ?? []).map(t => [t.attack_id, t.tactic]),
                   )}
+                  pathScores={scorerData?.path_scores ?? {}}
                 />
               ) : null}
             </>

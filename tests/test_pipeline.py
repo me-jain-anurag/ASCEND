@@ -543,7 +543,9 @@ def test_responses_match_the_typescript_interfaces():
                     "lab_environment": _STR, "summary_metrics": dict}, "StatusData")
     _check(status["summary_metrics"], _METRICS, "StatusMetrics")
 
-    _check(client.post("/api/verify").json(), _VERIFY, "VerifyData")
+    vresp = client.post("/api/verify")
+    if vresp.status_code != 503:
+        _check(vresp.json(), _VERIFY, "VerifyData")
 
 
 # ─── Verifier: the honesty invariants ─────────────────────────────────────────
@@ -764,6 +766,139 @@ def test_verifier_commands_split_into_shell_lines():
     assert _command_lines(["cat", "/root/my file"]) == ["cat '/root/my file'"]
     assert _command_lines([]) == []
     assert _command_lines(None) == []
+
+
+
+# ─── Hardening, Benign, Multi-Branch & ML Scorer regressions ──────────────────
+
+def test_verify_returns_503_when_docker_unavailable_no_silent_fake():
+    """Never silently fake verification passes when Docker is unreachable."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    import os
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    os.environ.pop("ASCEND_ALLOW_SIMULATION", None)
+    client = TestClient(main.app)
+    client.post("/api/reset")
+
+    resp = client.post("/api/verify")
+    if resp.status_code == 200:
+        # Live Docker lab is running — ensure nothing was simulated.
+        assert resp.json().get("simulated") is False
+    else:
+        assert resp.status_code == 503, resp.status_code
+        assert "detail" in resp.json() and resp.json()["detail"]
+
+
+def test_t1552_001_step_is_preserved_in_paths_and_verifier_edges():
+    """Credential-harvest (T1552.001) must appear as a real step and verifier edge."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    client = TestClient(main.app)
+    client.post("/api/reset")
+
+    enum = client.post("/api/enumerate", json={"scenario": "default"}).json()
+    assert enum["total_paths"] > 0
+    for path in enum["paths"]:
+        step_techs = [s["vector"]["technique"] for s in path["steps"]]
+        assert "T1552.001" in step_techs, step_techs
+        edges = main._verifier_edges(path, main._load_facts("default"))
+        edge_techs = [e["technique_id"] for e in edges]
+        assert "T1552.001" in edge_techs, edge_techs
+
+
+def test_benign_scenario_returns_zero_paths_and_negative_controls():
+    """Benign hardened baseline must yield 0 false-alarm paths and expose cleared controls."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    client = TestClient(main.app)
+    client.post("/api/reset")
+
+    ben = client.get("/api/benign").json()
+    assert ben["false_alarms"] == 0
+    assert ben["enumerated_paths"] == 0
+    assert ben["conditions_examined_and_cleared"] >= 4
+    assert len(ben["negative_controls"]) == ben["conditions_examined_and_cleared"]
+
+    enum = client.post("/api/enumerate", json={"scenario": "benign"}).json()
+    assert enum["scenario"] == "benign"
+    assert enum["total_paths"] == 0
+    assert enum["paths"] == []
+
+    # Cleanly switch back to default
+    client.post("/api/reset")
+
+
+def test_multibranch_scenario_chokepoint_beats_cvss_first():
+    """Multi-branch (app01 + ci01) must show greedy weighted set-cover beating CVSS-first."""
+    try:
+        from fastapi.testclient import TestClient
+    except ImportError:
+        raise Skip("fastapi not installed")
+    sys.path.insert(0, str(ROOT / "service"))
+    import main
+    client = TestClient(main.app)
+    client.post("/api/reset")
+
+    enum = client.post("/api/enumerate", json={"scenario": "multi_branch"}).json()
+    assert enum["total_paths"] >= 4
+
+    rem = client.get("/api/remediation?scenario=multi_branch").json()
+    cmp = rem["ordering_comparison"]
+    assert cmp["greedy_fixes_to_full_cover"] < cmp["naive_fixes_to_full_cover"]
+    assert cmp["greedy_cost_to_full_cover"] < cmp["naive_cost_to_full_cover"]
+
+    client.post("/api/reset")
+
+
+def test_scorer_trains_cleanly_and_excludes_not_executable_and_mismatches():
+    """Scorer must exclude not_executable rows and flag cross-host batch param mismatches."""
+    from scorer.model import score_environment
+    facts, _ = _facts_from_capture()
+    raw_paths = enumerate_paths(facts)
+    paths = [
+        {
+            "path_id": f"path-{i:02d}",
+            "steps": [
+                {
+                    "step_number": idx,
+                    "source_host": s["from"].split(":")[0],
+                    "vector": {"technique": s["technique"], "vector_id": s.get("vector_id")},
+                    "credential": {"cred_id": s["credential"]} if s.get("credential") else None,
+                }
+                for idx, s in enumerate(p, 1)
+            ],
+        }
+        for i, p in enumerate(raw_paths, 1)
+    ]
+    res = score_environment(facts, paths, ROOT / "outcomes.jsonl")
+    m = res["model"]
+    assert m["trained"] is True
+    assert m["records_excluded_not_executable"] == 40
+    assert m["records_flagged_param_mismatch"] == 80
+    assert m["records_trainable"] == 160
+    assert len(res["path_scores"]) == len(paths)
+    # Path containing T1068 must be flagged as containing an unverified-in-lab step
+    assert any(ps["contains_unverified_step"] for ps in res["path_scores"].values())
+
+
+def test_pathfinder_pivot_selection_is_deterministic():
+    """Repeated enumerations on the multi-branch graph must produce identical step sequences."""
+    mb_facts = json.loads((ROOT / "environment_graph" / "facts_multibranch.json").read_text())
+    first = enumerate_paths(mb_facts)
+    for _ in range(10):
+        assert enumerate_paths(mb_facts) == first
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -76,8 +76,35 @@ export default function RemediationPanel({
     ? verifiedNote(verifiedSet.size, totalPaths)
     : (data._verification_note ?? NOT_YET_VERIFIED_NOTE);
 
+  const cmp = data.ordering_comparison;
+  const showComparison = cmp && cmp.greedy_fixes_to_full_cover != null && cmp.naive_fixes_to_full_cover != null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {showComparison && (
+        <div className="card">
+          <div className="card-header">
+            <Star size={16} color="var(--accent-verified)" />
+            <h2>ASCEND Chokepoint vs. Naive CVSS-First Scanner</h2>
+          </div>
+          <div className="card-body" style={{ display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 13 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-2)', textTransform: 'uppercase' }}>ASCEND Weighted Set-Cover</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-verified)', fontFamily: 'var(--font-mono)' }}>
+                {cmp.greedy_fixes_to_full_cover} fix{cmp.greedy_fixes_to_full_cover !== 1 ? 'es' : ''} · cost {cmp.greedy_cost_to_full_cover}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Eliminates 100% of enumerated routes</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-2)', textTransform: 'uppercase' }}>Naive Highest-CVSS First</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-gap)', fontFamily: 'var(--font-mono)' }}>
+                {cmp.naive_fixes_to_full_cover} fix{cmp.naive_fixes_to_full_cover !== 1 ? 'es' : ''} · cost {cmp.naive_cost_to_full_cover}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-2)' }}>Blind to path overlap &amp; off-route high-CVSS noise</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Efficacy curve */}
       <div className="card">

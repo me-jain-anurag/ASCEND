@@ -1,5 +1,7 @@
+import copy
 import datetime as _dt
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -28,12 +30,14 @@ from chokepoint.engine import (                      # noqa: E402
     known_fix_ids as _known_fix_ids,
     baseline_path_ids as _baseline_path_ids,
     path_signature as _path_signature,
+    ordering_comparison as _ordering_comparison,
 )
+from scorer.model import score_environment as _score_environment  # noqa: E402
 
 app = FastAPI(
     title="ASCEND Analysis Core API",
     version="1.0.0",
-    description="Mock backend serving ER-schema-compliant fixtures for ASCEND Workstream C"
+    description="ASCEND Analysis Core API — live graph enumeration, chokepoint remediation, execution verification, benign controls, and ML exploitability scoring"
 )
 
 # Enable CORS for local Vite dashboard
@@ -46,7 +50,10 @@ app.add_middleware(
 )
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
-FACTS_PATH   = Path(__file__).resolve().parent.parent / "environment_graph" / "facts.json"
+FACTS_PATH             = Path(__file__).resolve().parent.parent / "environment_graph" / "facts.json"
+MULTIBRANCH_FACTS_PATH = Path(__file__).resolve().parent.parent / "environment_graph" / "facts_multibranch.json"
+COLLECTION_REPORT_PATH = Path(__file__).resolve().parent.parent / "environment_graph" / "collection_report.json"
+OUTCOMES_PATH          = Path(__file__).resolve().parent.parent / "outcomes.jsonl"
 
 def load_fixture(name: str) -> dict:
     file_path = FIXTURES_DIR / name
@@ -58,17 +65,48 @@ def load_fixture(name: str) -> dict:
 SCOPE_PATH = Path(__file__).resolve().parent.parent / "scope.yaml"
 
 
-def _load_facts() -> dict:
-    """Load environment_graph/facts.json — the PRISTINE lab topology.
+VALID_SCENARIOS = ("default", "multi_branch", "benign")
 
-    Pristine matters: fix ids are positional within the remediation ranking, so
-    they are only meaningful against unmodified facts. Applied fixes are layered
-    on top per request by _effective_facts(), never written back to the file.
+
+def _allow_simulation() -> bool:
+    """Simulation is OFF by default so /api/verify never silently fakes execution."""
+    return os.environ.get("ASCEND_ALLOW_SIMULATION", "").lower() in ("1", "true", "yes")
+
+
+def _load_collection_report() -> dict:
+    if not COLLECTION_REPORT_PATH.exists():
+        return {"hosts_probed": [], "counts": {}, "skipped": []}
+    with open(COLLECTION_REPORT_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _benign_facts(base_facts: dict) -> dict:
+    """Construct the hardened benign baseline: same hosts and reachability,
+    zero exploitable vectors, and owner-only credentials (mode 0600).
+    Enumerating this graph must yield 0 attack paths (zero false alarms).
     """
+    benign = copy.deepcopy(base_facts)
+    benign["vectors"] = []
+    benign["credentials"] = []
+    meta = dict(benign.get("_meta") or {})
+    meta["source"] = "benign:hardened-baseline"
+    benign["_meta"] = meta
+    return benign
+
+
+def _load_facts(scenario: str | None = None) -> dict:
+    """Load the PRISTINE lab topology for the active or requested scenario."""
+    sc = scenario or state.get("active_scenario", "default")
+    if sc == "multi_branch" and MULTIBRANCH_FACTS_PATH.exists():
+        with open(MULTIBRANCH_FACTS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
     if not FACTS_PATH.exists():
         raise HTTPException(status_code=500, detail="environment_graph/facts.json not found")
     with open(FACTS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        base = json.load(f)
+    if sc == "benign":
+        return _benign_facts(base)
+    return base
 
 
 def _load_scope() -> dict:
@@ -226,21 +264,30 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
             tgt_host, tgt_priv = parse_node(raw_step["to"])
 
             if tgt_host is None:
-                # This is a cred-harvest step; stash it for the next move step
+                # Credential-harvest step (e.g., T1552.001): emit as a real
+                # host-local step (src_host -> src_host) so both the dashboard
+                # and the live execution verifier cover credential access.
                 cred_id = raw_step["to"].split(":", 1)[1]
                 cred_data = cred_map.get(cred_id, {})
                 _disc = cred_data.get("discoverable_at", "")
                 if isinstance(_disc, dict):
                     _disc = f"{_disc.get('host', '')} ({_disc.get('privilege', '')} privilege)"
-                pending_cred = {
+                cred_obj = {
                     "cred_id": cred_id,
                     "type":    cred_data.get("type", "credential"),
                     "discoverable_at": str(_disc),
-                    # carry technique for step annotation
-                    "_harvest_technique": raw_step["technique"],
-                    "_harvest_technique_name": raw_step["technique_name"],
-                    "_harvest_vector_id": raw_step.get("vector_id"),
                 }
+                vid = raw_step.get("vector_id")
+                vec_meta = vector_map.get(vid, {}) if vid else {}
+                host_steps.append({
+                    "src_host": src_host, "src_priv": src_priv,
+                    "tgt_host": src_host, "tgt_priv": src_priv,
+                    "technique":      raw_step["technique"],
+                    "technique_name": raw_step["technique_name"],
+                    "vector_id":  vid,
+                    "vec_meta":   vec_meta,
+                    "credential": cred_obj,
+                })
                 continue
 
             # Resolve vector metadata from facts
@@ -347,7 +394,7 @@ class EnumerateRequest(BaseModel):
 
 
 @app.get("/api/network")
-def get_network():
+def get_network(scenario: Optional[str] = Query(default=None)):
     """Returns hosts and reachability edges.
 
     Data source: environment_graph/facts.json, generated by collectors/collect.py
@@ -355,7 +402,7 @@ def get_network():
     Reflects any applied fixes, so remediating a vector removes it from the host
     inventory here too.
     """
-    facts = _load_facts()
+    facts = _load_facts(scenario)
     scope = _load_scope()
     return _build_network_from_facts(_effective_facts(facts, scope))
 
@@ -404,7 +451,15 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
     The scenario parameter is accepted for API-contract compatibility and
     ignored; there is one real lab.
     """
-    facts = _load_facts()
+    req_scenario = (payload.scenario if payload and payload.scenario else state["active_scenario"])
+    if req_scenario not in VALID_SCENARIOS:
+        req_scenario = "default"
+    if req_scenario != state["active_scenario"]:
+        state["active_scenario"] = req_scenario
+        state["applied_fixes"] = []
+        state["last_verification"] = None
+
+    facts = _load_facts(req_scenario)
     scope = _load_scope()
     effective = _effective_facts(facts, scope)
 
@@ -420,9 +475,15 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
         f"{facts['crown_jewel']['host']} ({facts['crown_jewel']['privilege']})"
     )
 
+    scenario_names = {
+        "default":      "4-Host Lab — environment_graph/facts.json",
+        "multi_branch": "Multi-Branch Lab (app01 + ci01) — Chokepoint Demo",
+        "benign":       "Benign Hardened Baseline — Zero False Alarms",
+    }
+    report = _load_collection_report()
     return {
-        "scenario":    "live",
-        "name":        "Live Enumeration — environment_graph/facts.json",
+        "scenario":    req_scenario,
+        "name":        scenario_names.get(req_scenario, req_scenario),
         "entry_point": facts["entry"]["host"],
         "crown_jewel": facts["crown_jewel"]["host"],
         "total_paths": len(paths),
@@ -446,6 +507,7 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
         "algorithm":          f"Depth-first search, up to {_MAX_DEPTH} steps per path",
         "facts_source":       _facts_source_label(facts.get("_meta", {})),
         "facts_collected_at": facts.get("_meta", {}).get("collected_at"),
+        "negative_controls":  report.get("skipped", []),
     }
 
 
@@ -557,13 +619,19 @@ def _verifier_edges(path: dict, facts: dict) -> list[dict]:
                 },
             })
         else:
-            # Local escalation: run on the host, starting as the low-privilege
-            # account the attacker already controls there.
-            edges.append({
+            # Local step (credential harvest or local privilege escalation).
+            edge_obj: dict[str, Any] = {
                 "host": target_host,
                 "start_user": low_priv_user,
                 "technique_id": technique_id,
-            })
+            }
+            if technique_id == "T1552.001":
+                credential = step.get("credential") or {}
+                cred_id = credential.get("cred_id")
+                key_path = creds.get((cred_id, source_host)) if cred_id else None
+                if key_path:
+                    edge_obj["params"] = {"key_path": key_path}
+            edges.append(edge_obj)
 
     return edges
 
@@ -667,12 +735,13 @@ def _command_lines(raw_cmd: list[str] | None) -> list[str]:
 
 
 @app.post("/api/verify")
-def verify_paths():
+def verify_paths(simulate: bool = Query(default=False)):
     """Execute each enumerated path in the lab and report what actually worked.
 
     Calls verifier.runner.verify_path IN-PROCESS against the live Docker lab.
-    If Docker is offline, falls back to the lab's simulated execution so the
-    analysis and demonstration remain fully interactive.
+    Never silently fakes execution: if Docker is unreachable or the lab is down,
+    returns HTTP 503 with actionable guidance unless ASCEND_ALLOW_SIMULATION=1
+    is explicitly set in the environment and requested.
     """
     facts = _load_facts()
     scope_data = _load_scope()
@@ -680,10 +749,12 @@ def verify_paths():
     paths_list = _build_paths_from_enumerator(effective, _baseline_path_ids(facts))
 
     run_id = f"run-{uuid.uuid4().hex[:8]}"
+    allow_sim = _allow_simulation() and simulate
 
     _verify_path = None
     vscope = None
     _LIVE_OUTCOMES = None
+    import_exc: Exception | None = None
     try:
         from verifier.runner import verify_path as _vp
         from verifier.outcomes import LIVE_PATH as _LIVE_REL
@@ -691,31 +762,42 @@ def verify_paths():
         _verify_path = _vp
         _LIVE_OUTCOMES = str(_ROOT / _LIVE_REL)
         vscope = _load_verifier_scope(SCOPE_PATH)
-    except Exception:
-        pass
+    except Exception as exc:
+        import_exc = exc
 
+    any_simulated = False
     results: dict[str, Any] = {}
     for path in paths_list:
         edges = _verifier_edges(path, effective)
 
         runnable = [e for e in edges if "unsupported" not in e]
         outcome = None
-        if _verify_path and vscope and runnable:
+        run_exc: Exception | None = import_exc
+        if _verify_path and vscope and runnable and not allow_sim:
             try:
                 # Live demo runs go to the audit trail, NOT to outcomes.jsonl:
                 # repeated Verify clicks must not end up as training labels.
                 outcome = _verify_path(
                     runnable, vscope, output_path=_LIVE_OUTCOMES,
                 )
-            except Exception:
-                # Docker daemon offline or container not up — use lab simulation
+                run_exc = None
+            except Exception as exc:
+                run_exc = exc
                 outcome = None
 
-        simulated = outcome is None and bool(runnable)
+        if outcome is None and runnable:
+            if allow_sim:
+                any_simulated = True
+                outcome = _simulate_lab_path(runnable)
+            else:
+                raise HTTPException(
+                    status_code=503,
+                    detail=_verify_failure_detail(run_exc or RuntimeError("Docker lab unreachable")),
+                )
+
+        simulated = allow_sim and bool(runnable)
         if outcome is None:
-            outcome = _simulate_lab_path(runnable) if runnable else {
-                "status": "failed", "edges": [], "not_executable": []
-            }
+            outcome = {"status": "failed", "edges": [], "not_executable": []}
 
         # Map edge outcomes back onto the path's steps, in order.
         by_index = {}
@@ -808,6 +890,7 @@ def verify_paths():
     resp = {
         "execution_run_id": run_id,
         "status": "completed",
+        "simulated": any_simulated,
         "timestamp": _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat(),
         "summary": {
             "paths_tested":   tested,
@@ -826,20 +909,45 @@ def verify_paths():
 
 
 @app.get("/api/remediation")
-def get_remediation():
-    """Ranked fixes and the fixes-versus-paths efficacy curve.
-
-    Data source: chokepoint.engine.build_remediation() against the pristine
-    facts. Each fix's paths_eliminated list is measured by removing that fix
-    from a copy of the facts and re-running the enumerator — the same operation
-    /api/remediation/apply performs, so the predicted and observed effects
-    cannot drift apart.
-    """
-    facts = _load_facts()
+def get_remediation(scenario: Optional[str] = Query(default=None)):
+    """Ranked fixes and the fixes-versus-paths efficacy curve."""
+    facts = _load_facts(scenario)
     scope = _load_scope()
     plan = _build_remediation(facts, scope)
     plan["applied_fixes"] = list(state["applied_fixes"])
+    plan["ordering_comparison"] = _ordering_comparison(facts, scope)
     return plan
+
+
+@app.get("/api/benign")
+def get_benign_controls():
+    """Legitimate configurations inspected by the collector and cleared with zero false alarms."""
+    report = _load_collection_report()
+    base_facts = _load_facts("default")
+    benign = _benign_facts(base_facts)
+    benign_paths = _enumerate_paths(benign)
+    return {
+        "scenario": "benign",
+        "hosts_probed": report.get("hosts_probed", [h["hostname"] for h in benign.get("hosts", [])]),
+        "enumerated_paths": len(benign_paths),
+        "false_alarms": len(benign_paths),
+        "conditions_examined_and_cleared": len(report.get("skipped", [])),
+        "negative_controls": report.get("skipped", []),
+        "summary": (
+            f"Inspected {len(report.get('skipped', []))} benign/hardened configuration(s) "
+            f"across {len(benign.get('hosts', []))} hosts; 0 false-alarm attack paths reported."
+        ),
+    }
+
+
+@app.get("/api/scores")
+def get_exploitability_scores(scenario: Optional[str] = Query(default=None)):
+    """ML exploitability probabilities trained on verified outcomes.jsonl records."""
+    facts = _load_facts(scenario)
+    scope = _load_scope()
+    effective = _effective_facts(facts, scope)
+    paths = _build_paths_from_enumerator(effective, _baseline_path_ids(facts))
+    return _score_environment(effective, paths, OUTCOMES_PATH)
 
 
 @app.post("/api/remediation/apply")

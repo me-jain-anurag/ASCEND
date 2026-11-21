@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Shield, CheckCircle, XCircle, AlertTriangle, KeyRound } from 'lucide-react';
-import type { AttackPath, VerifyData } from '../types';
+import type { AttackPath, VerifyData, PathScore } from '../types';
 
 interface Props {
   paths: AttackPath[];
@@ -9,6 +9,7 @@ interface Props {
   selectedPathId?: string | null;
   /** ATT&CK technique id -> tactic, from /api/knowledge. */
   tactics?: Record<string, string>;
+  pathScores?: Record<string, PathScore>;
 }
 
 function techniqueTag(t: string) {
@@ -56,7 +57,7 @@ function stepStatus(stepVerify: { verified: boolean; status?: string; reason?: s
 }
 
 export default function PathList({
-  paths, verifyData, onSelectPath, selectedPathId, tactics = {},
+  paths, verifyData, onSelectPath, selectedPathId, tactics = {}, pathScores = {},
 }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -76,6 +77,7 @@ export default function PathList({
         const isExpanded = expanded === path.path_id;
         const isSelected = selectedPathId === path.path_id;
         const verResult = verifyData?.results[path.path_id];
+        const scoreInfo = pathScores[path.path_id];
         const pStatus = pathStatus(verResult);
 
         return (
@@ -113,6 +115,11 @@ export default function PathList({
                 <div className="path-name">{path.name}</div>
                 <div className="path-sub">
                   {path.entry_host} → {path.crown_jewel_host} &nbsp;·&nbsp; {path.length} steps
+                  {scoreInfo && (
+                    <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: scoreInfo.contains_unverified_step ? 'var(--accent-amber)' : 'var(--text-1)' }}>
+                      · ML P(exploit)={(scoreInfo.joint_probability * 100).toFixed(0)}%{scoreInfo.contains_unverified_step ? ' (lab-unverified step)' : ''}
+                    </span>
+                  )}
                   {isSelected && <span style={{ color: 'var(--accent-partial)', marginLeft: 8 }}>● Graph highlighted</span>}
                   {verResult && pStatus === 'partial' && (
                     <span style={{ marginLeft: 8, color: 'var(--accent-amber)', fontSize: 10 }}>

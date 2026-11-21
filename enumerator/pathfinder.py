@@ -121,9 +121,15 @@ def search(facts, max_depth=MAX_DEPTH, max_paths=MAX_PATHS, collapse=COLLAPSE):
                     continue
                 if not reachable(controlled, gh):
                     continue
-                src = next(h for (h, _p) in controlled if (h, gh) in reach)
+                # Sort controlled (host, priv) pairs so pivot selection is
+                # deterministic across runs and Python hash seeds when multiple
+                # controlled hosts can reach the target.
+                src, src_priv = next(
+                    (h, p) for (h, p) in sorted(controlled, key=lambda hp: (hp[0], PRIV[hp[1]]))
+                    if (h, gh) in reach
+                )
                 step = {
-                    "from": node_label(src, next(p for (h, p) in controlled if h == src)),
+                    "from": node_label(src, src_priv),
                     "to": node_label(gh, gp),
                     "technique": "T1021.004+T1550",
                     "technique_name": "Remote Services: SSH (reused credential)",

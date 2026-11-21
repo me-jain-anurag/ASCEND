@@ -1,0 +1,166 @@
+{
+  "model": {
+    "trained": true,
+    "model_type": "L2 Logistic Regression (pure NumPy)",
+    "records_total": 280,
+    "records_trainable": 160,
+    "records_excluded_not_executable": 40,
+    "records_flagged_param_mismatch": 80,
+    "positive_rate": 1.0,
+    "cv_folds": 5,
+    "cv_accuracy": 1.0,
+    "cv_brier_score": 0.0001,
+    "feature_weights": {
+      "cvss_norm": 0.0,
+      "is_config_abuse": 0.0,
+      "is_credential_access": 0.0,
+      "is_lateral_move": 0.0,
+      "is_kernel_cve": 0.0,
+      "host_asset_norm": 0.0,
+      "provenance_observed": 0.0,
+      "reuse_count_norm": 0.0
+    },
+    "technique_priors": {
+      "T1021.004+T1550": {
+        "escalated": 40,
+        "attempted": 40,
+        "smoothed_probability": 0.9762
+      },
+      "T1548.001": {
+        "escalated": 40,
+        "attempted": 40,
+        "smoothed_probability": 0.9762
+      },
+      "T1548.003": {
+        "escalated": 40,
+        "attempted": 40,
+        "smoothed_probability": 0.9762
+      },
+      "T1552.001": {
+        "escalated": 40,
+        "attempted": 40,
+        "smoothed_probability": 0.9762
+      }
+    },
+    "caveats": [
+      "Excluded 40 not_executable record(s) from training so lab limitations are never treated as negative exploit labels.",
+      "Detected 80 batch lateral-SSH record(s) with cross-host key_path mismatch (web01 path run on app01/db01); excluded from training.",
+      "160 historical outcome(s) lack host_facts_ref; features were reconstructed from current facts.json.",
+      "After filtering not_executable and parameter-mismatch rows, remaining training outcomes are single-class. Collect genuine failed-escalation negatives in the lab to calibrate discriminative weights."
+    ]
+  },
+  "vector_scores": {
+    "v_app01_sudo_tar": {
+      "vector_id": "v_app01_sudo_tar",
+      "host": "app01",
+      "technique": "T1548.003",
+      "probability": 0.985,
+      "confidence": "empirical",
+      "basis": "model + empirical prior (40/40 verified)"
+    },
+    "v_db01_suid_find": {
+      "vector_id": "v_db01_suid_find",
+      "host": "db01",
+      "technique": "T1548.001",
+      "probability": 0.985,
+      "confidence": "empirical",
+      "basis": "model + empirical prior (40/40 verified)"
+    },
+    "v_db01_kernel_cve_2022_0847": {
+      "vector_id": "v_db01_kernel_cve_2022_0847",
+      "host": "db01",
+      "technique": "T1068",
+      "probability": 0.5,
+      "confidence": "unverified_in_lab",
+      "basis": "unverified in container lab (prior capped at 0.50)"
+    },
+    "v_web01_credfile_id_rsa": {
+      "vector_id": "v_web01_credfile_id_rsa",
+      "host": "web01",
+      "technique": "T1552.001",
+      "probability": 0.985,
+      "confidence": "empirical",
+      "basis": "model + empirical prior (40/40 verified)"
+    }
+  },
+  "path_scores": {
+    "path-01": {
+      "path_id": "path-01",
+      "joint_probability": 0.9413,
+      "contains_unverified_step": false,
+      "steps": [
+        {
+          "step_number": 1,
+          "technique": "T1552.001",
+          "host": "web01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 2,
+          "technique": "T1021.004+T1550",
+          "host": "web01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 3,
+          "technique": "T1021.004+T1550",
+          "host": "app01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 4,
+          "technique": "T1548.001",
+          "host": "db01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        }
+      ]
+    },
+    "path-02": {
+      "path_id": "path-02",
+      "joint_probability": 0.4778,
+      "contains_unverified_step": true,
+      "steps": [
+        {
+          "step_number": 1,
+          "technique": "T1552.001",
+          "host": "web01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 2,
+          "technique": "T1021.004+T1550",
+          "host": "web01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 3,
+          "technique": "T1021.004+T1550",
+          "host": "app01",
+          "probability": 0.985,
+          "confidence": "empirical",
+          "basis": "model + empirical prior (40/40 verified)"
+        },
+        {
+          "step_number": 4,
+          "technique": "T1068",
+          "host": "db01",
+          "probability": 0.5,
+          "confidence": "unverified_in_lab",
+          "basis": "unverified in container lab (prior capped at 0.50)"
+        }
+      ]
+    }
+  }
+}
