@@ -1,0 +1,38 @@
+# T1548.003 runtime-mitigated negative — NOPASSWD sudo rule with NOEXEC.
+# Statically looks like an exploitable NOPASSWD rule for a shell-escape binary
+# (e.g. /bin/tar), so a naive scanner or static rule flags it. At runtime,
+# sudo's NOEXEC tag (LD_PRELOAD=sudo_noexec.so) blocks child execve() calls,
+# so --checkpoint-action=exec fails and the verifier records `not_escalated`.
+id: nopasswd_sudo_noexec
+title: "NOPASSWD sudo rule blocked by NOEXEC (runtime-mitigated)"
+technique: T1548.003
+executable_in: either
+kind: runtime_mitigated
+expected_outcome: not_escalated
+mitigation: sudo_noexec
+summary: >-
+  {user} may run {binary} with NOPASSWD, but the sudoers entry enforces NOEXEC,
+  preventing child process execution. Static rules flag the binary; live
+  verification confirms escalation fails.
+
+needs: [account]
+
+params:
+  binary: "/bin/tar"
+  payload_template: "sudo -n /bin/tar -cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec='cat {canary}'"
+
+seed: |
+  cat > /etc/sudoers.d/{user}-noexec <<'SUDOERS'
+  {user} ALL=(root) NOPASSWD: NOEXEC: {binary}
+  SUDOERS
+  chmod 0440 /etc/sudoers.d/{user}-noexec
+  visudo -cf /etc/sudoers.d/{user}-noexec
+
+verify:
+  adapter: config_abuse
+  check: sudo_rule
+  scope: local
+  start_user: "{user}"
+  params:
+    sudo_target: "{binary}"
+    payload_template: "{payload_template}"

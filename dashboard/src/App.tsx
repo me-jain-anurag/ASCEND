@@ -47,8 +47,8 @@ const SCENARIO_TIPS: Record<Scenario, string> = {
     'Multi-Branch (app01 + ci01): 8 routes across both pivot tiers plus an ' +
     'off-route CVSS 8.8 Docker socket, demonstrating 6x lower remediation cost vs. CVSS-first.',
   benign:
-    'Benign Hardened Baseline: normal legitimate admin configs (0600 keys, safe ' +
-    'sudo /bin/ls, patched kernels). Proves ASCEND reports 0 false alarms.',
+    'Hardened Baseline: real hardened blueprint + collector negative controls ' +
+    '(0600 keys, safe sudo /bin/ls, patched kernels) examined and declined.',
 };
 
 /** "22 Oct 2026, 14:27 UTC" — the collector writes ISO timestamps in UTC. */
@@ -390,7 +390,7 @@ export default function App() {
 
       // Attempt verification run, but do not block the core dashboard if Docker is not ready
       try {
-        const vfy = await api.post<VerifyData>('/api/verify');
+        const vfy = await api.post<VerifyData>(`/api/verify?scenario=${sc}`);
         setVerifyData(vfy);
         // Status and paths were fetched above, before this run, so their
         // verified and partial counts describe the previous run (0 on first load).
@@ -446,7 +446,7 @@ export default function App() {
   const handleApplyFix = async (fixId: string) => {
     setApplying(fixId);
     try {
-      await api.post('/api/remediation/apply', { fix_id: fixId });
+      await api.post('/api/remediation/apply', { fix_id: fixId, scenario });
       await fetchAll(scenario);
       const st = await api.get<StatusData>('/api/status');
       setStatus(st);
@@ -667,7 +667,7 @@ export default function App() {
                     onClick={() => {
                       setLoading(true);
                       setError(null);
-                      api.post<VerifyData>('/api/verify')
+                      api.post<VerifyData>(`/api/verify?scenario=${scenario}`)
                         .then(async vfy => {
                           setVerifyData(vfy);
                           const [st, pth] = await fetchRunCounts(scenario);
@@ -698,7 +698,7 @@ export default function App() {
                 <div className="card" style={{ marginBottom: 16 }}>
                   <div className="card-header">
                     <ShieldCheck size={16} color="var(--accent-verified)" />
-                    <h2>Zero False Alarms — Inspected &amp; Cleared Controls</h2>
+                    <h2>Hardened Baseline — Collector Negative Controls</h2>
                     <span className="tag tag-green" style={{ marginLeft: 'auto' }}>
                       {benignData.false_alarms} false alarms · {benignData.conditions_examined_and_cleared} cleared
                     </span>
@@ -723,6 +723,58 @@ export default function App() {
                 </div>
               )}
 
+              {scenario !== 'benign' && scorerData && (
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="card-header">
+                    <Target size={16} color="var(--accent-purple)" />
+                    <h2>Exploitability Scorer vs. Named Baselines</h2>
+                    <span
+                      className={`tag ${scorerData.model.trained ? 'tag-green' : 'tag-amber'}`}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      {scorerData.model.trained
+                        ? `Trained (${scorerData.model.records_positives}+ / ${scorerData.model.records_negatives}- · ${scorerData.model.label_source})`
+                        : `Untrained (${scorerData.model.status})`}
+                    </span>
+                  </div>
+                  <div className="card-body">
+                    {scorerData.model.trained && scorerData.model.baselines.length > 0 ? (
+                      <>
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>Model / Baseline (Held-Out Test Variants)</th>
+                              <th>Accuracy</th>
+                              <th>Macro-F1</th>
+                              <th>Brier</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...scorerData.model.baselines, ...scorerData.model.ablations].map((row, i) => (
+                              <tr key={i}>
+                                <td style={{ fontWeight: row.kind === 'model' ? 600 : 400 }}>{row.name}</td>
+                                <td style={{ fontFamily: 'var(--font-mono)' }}>{(row.accuracy * 100).toFixed(1)}%</td>
+                                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{row.macro_f1.toFixed(3)}</td>
+                                <td style={{ fontFamily: 'var(--font-mono)' }}>{row.brier_score.toFixed(3)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {scorerData.model.caveats.length > 0 && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>
+                            {scorerData.model.caveats.join(' · ')}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                        ML path badges are hidden because the current dataset lacks two-class labels ({scorerData.model.records_positives} escalated, {scorerData.model.records_negatives} not escalated).
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {loading && !paths ? <Loader /> : paths ? (
                 <PathList
                   paths={paths.paths}
@@ -733,6 +785,7 @@ export default function App() {
                     (knowledge?.techniques ?? []).map(t => [t.attack_id, t.tactic]),
                   )}
                   pathScores={scorerData?.path_scores ?? {}}
+                  scorerTrained={Boolean(scorerData?.model?.trained)}
                 />
               ) : null}
             </>

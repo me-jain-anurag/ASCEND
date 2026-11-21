@@ -165,17 +165,37 @@ export interface PathScore {
     basis: string;
   }>;
 }
+export interface ScorerMetricRow {
+  name: string;
+  kind: string;
+  feature_tier: string;
+  n_test: number;
+  accuracy: number;
+  precision: number;
+  recall: number;
+  macro_f1: number;
+  roc_auc: number | null;
+  brier_score: number;
+}
 export interface ScorerData {
   model: {
     trained: boolean;
+    status: string;
     model_type: string;
+    label_source: string;
     records_total: number;
     records_trainable: number;
+    records_positives: number;
+    records_negatives: number;
     records_excluded_not_executable: number;
     records_flagged_param_mismatch: number;
-    cv_folds: number;
-    cv_accuracy: number | null;
-    cv_brier_score: number | null;
+    positive_rate: number | null;
+    split_strategy: string;
+    test_metrics: ScorerMetricRow | null;
+    baselines: ScorerMetricRow[];
+    ablations: ScorerMetricRow[];
+    beats_cvss_baseline: boolean | null;
+    beats_majority_baseline: boolean | null;
     caveats: string[];
   };
   path_scores: Record<string, PathScore>;

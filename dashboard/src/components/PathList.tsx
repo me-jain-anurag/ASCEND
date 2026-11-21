@@ -10,6 +10,7 @@ interface Props {
   /** ATT&CK technique id -> tactic, from /api/knowledge. */
   tactics?: Record<string, string>;
   pathScores?: Record<string, PathScore>;
+  scorerTrained?: boolean;
 }
 
 function techniqueTag(t: string) {
@@ -57,7 +58,7 @@ function stepStatus(stepVerify: { verified: boolean; status?: string; reason?: s
 }
 
 export default function PathList({
-  paths, verifyData, onSelectPath, selectedPathId, tactics = {}, pathScores = {},
+  paths, verifyData, onSelectPath, selectedPathId, tactics = {}, pathScores = {}, scorerTrained = false,
 }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -115,7 +116,7 @@ export default function PathList({
                 <div className="path-name">{path.name}</div>
                 <div className="path-sub">
                   {path.entry_host} → {path.crown_jewel_host} &nbsp;·&nbsp; {path.length} steps
-                  {scoreInfo && (
+                  {scorerTrained && scoreInfo && (
                     <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', fontSize: 11, color: scoreInfo.contains_unverified_step ? 'var(--accent-amber)' : 'var(--text-1)' }}>
                       · ML P(exploit)={(scoreInfo.joint_probability * 100).toFixed(0)}%{scoreInfo.contains_unverified_step ? ' (lab-unverified step)' : ''}
                     </span>

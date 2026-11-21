@@ -1,0 +1,156 @@
+{
+  "trained": true,
+  "status": "trained",
+  "model_type": "L2 Logistic Regression (pure NumPy)",
+  "label_source": "catalogue_ground_truth",
+  "records_total": 334,
+  "records_trainable": 314,
+  "records_positives": 199,
+  "records_negatives": 115,
+  "records_excluded_not_executable": 20,
+  "records_flagged_param_mismatch": 0,
+  "positive_rate": 0.6338,
+  "split_strategy": "grouped_by_variant (70/15 train+val, 15 held-out test)",
+  "test_metrics": {
+    "name": "Logistic Regression (full_context)",
+    "kind": "model",
+    "feature_tier": "full_context",
+    "n_test": 49,
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "macro_f1": 1.0,
+    "roc_auc": 1.0,
+    "brier_score": 0.0054
+  },
+  "baselines": [
+    {
+      "name": "Majority-Class Baseline",
+      "kind": "baseline",
+      "feature_tier": "none",
+      "n_test": 49,
+      "accuracy": 0.7143,
+      "precision": 0.7143,
+      "recall": 1.0,
+      "macro_f1": 0.4167,
+      "roc_auc": 0.5,
+      "brier_score": 0.2132
+    },
+    {
+      "name": "CVSS >= 7.0 Baseline",
+      "kind": "baseline",
+      "feature_tier": "cvss_only",
+      "n_test": 49,
+      "accuracy": 0.2857,
+      "precision": 0.5,
+      "recall": 0.3429,
+      "macro_f1": 0.2547,
+      "roc_auc": 0.2429,
+      "brier_score": 0.7143
+    },
+    {
+      "name": "Static Scanner-Flag Baseline",
+      "kind": "baseline",
+      "feature_tier": "static_flag",
+      "n_test": 49,
+      "accuracy": 0.7143,
+      "precision": 0.7143,
+      "recall": 1.0,
+      "macro_f1": 0.4167,
+      "roc_auc": 0.5,
+      "brier_score": 0.2857
+    }
+  ],
+  "ablations": [
+    {
+      "name": "Logistic Regression (cvss_only)",
+      "kind": "model",
+      "feature_tier": "cvss_only",
+      "n_test": 49,
+      "accuracy": 0.7143,
+      "precision": 0.7143,
+      "recall": 1.0,
+      "macro_f1": 0.4167,
+      "roc_auc": 0.7694,
+      "brier_score": 0.196
+    },
+    {
+      "name": "Logistic Regression (scanner_context)",
+      "kind": "model",
+      "feature_tier": "scanner_context",
+      "n_test": 49,
+      "accuracy": 0.7959,
+      "precision": 0.8049,
+      "recall": 0.9429,
+      "macro_f1": 0.7069,
+      "roc_auc": 0.8224,
+      "brier_score": 0.1551
+    },
+    {
+      "name": "Logistic Regression (full_context)",
+      "kind": "model",
+      "feature_tier": "full_context",
+      "n_test": 49,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "macro_f1": 1.0,
+      "roc_auc": 1.0,
+      "brier_score": 0.0054
+    },
+    {
+      "name": "Gradient-Boosted Trees (full_context)",
+      "kind": "model",
+      "feature_tier": "full_context",
+      "n_test": 49,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "macro_f1": 1.0,
+      "roc_auc": 1.0,
+      "brier_score": 0.0
+    }
+  ],
+  "beats_cvss_baseline": true,
+  "beats_majority_baseline": true,
+  "feature_weights": {
+    "cvss_norm": 0.6087,
+    "is_config_abuse": -0.6363,
+    "is_credential_access": 1.3394,
+    "is_lateral_move": 0.5667,
+    "is_kernel_cve": 0.0,
+    "host_asset_norm": 0.2406,
+    "reuse_count_norm": 0.2818,
+    "epss_prior": 0.1845,
+    "is_dual_homed": -0.2743,
+    "sudo_noexec": -4.7968,
+    "nosuid_mount": -4.1842,
+    "sshd_deny_users": -5.0705
+  },
+  "technique_priors": {
+    "T1021.004+T1550": {
+      "escalated": 98,
+      "attempted": 125,
+      "smoothed_probability": 0.7795
+    },
+    "T1548.001": {
+      "escalated": 33,
+      "attempted": 61,
+      "smoothed_probability": 0.5397
+    },
+    "T1548.003": {
+      "escalated": 32,
+      "attempted": 92,
+      "smoothed_probability": 0.3511
+    },
+    "T1552.001": {
+      "escalated": 36,
+      "attempted": 36,
+      "smoothed_probability": 0.9737
+    }
+  },
+  "caveats": [
+    "Excluded 20 not_executable record(s) so lab limitations are never treated as negatives.",
+    "Variant benchmark labels come from catalogue ground truth (offline); live Docker/VM verifier runs overwrite these with canary-verified outcomes."
+  ]
+}

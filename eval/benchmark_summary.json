@@ -1,0 +1,225 @@
+{
+  "seed": 1337,
+  "n_variants": 40,
+  "scorer": {
+    "trained": true,
+    "status": "trained",
+    "model_type": "L2 Logistic Regression (pure NumPy)",
+    "label_source": "catalogue_ground_truth",
+    "records_total": 334,
+    "records_trainable": 314,
+    "records_positives": 199,
+    "records_negatives": 115,
+    "records_excluded_not_executable": 20,
+    "records_flagged_param_mismatch": 0,
+    "positive_rate": 0.6338,
+    "split_strategy": "grouped_by_variant (70/15 train+val, 15 held-out test)",
+    "test_metrics": {
+      "name": "Logistic Regression (full_context)",
+      "kind": "model",
+      "feature_tier": "full_context",
+      "n_test": 49,
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "macro_f1": 1.0,
+      "roc_auc": 1.0,
+      "brier_score": 0.0054
+    },
+    "baselines": [
+      {
+        "name": "Majority-Class Baseline",
+        "kind": "baseline",
+        "feature_tier": "none",
+        "n_test": 49,
+        "accuracy": 0.7143,
+        "precision": 0.7143,
+        "recall": 1.0,
+        "macro_f1": 0.4167,
+        "roc_auc": 0.5,
+        "brier_score": 0.2132
+      },
+      {
+        "name": "CVSS >= 7.0 Baseline",
+        "kind": "baseline",
+        "feature_tier": "cvss_only",
+        "n_test": 49,
+        "accuracy": 0.2857,
+        "precision": 0.5,
+        "recall": 0.3429,
+        "macro_f1": 0.2547,
+        "roc_auc": 0.2429,
+        "brier_score": 0.7143
+      },
+      {
+        "name": "Static Scanner-Flag Baseline",
+        "kind": "baseline",
+        "feature_tier": "static_flag",
+        "n_test": 49,
+        "accuracy": 0.7143,
+        "precision": 0.7143,
+        "recall": 1.0,
+        "macro_f1": 0.4167,
+        "roc_auc": 0.5,
+        "brier_score": 0.2857
+      }
+    ],
+    "ablations": [
+      {
+        "name": "Logistic Regression (cvss_only)",
+        "kind": "model",
+        "feature_tier": "cvss_only",
+        "n_test": 49,
+        "accuracy": 0.7143,
+        "precision": 0.7143,
+        "recall": 1.0,
+        "macro_f1": 0.4167,
+        "roc_auc": 0.7694,
+        "brier_score": 0.196
+      },
+      {
+        "name": "Logistic Regression (scanner_context)",
+        "kind": "model",
+        "feature_tier": "scanner_context",
+        "n_test": 49,
+        "accuracy": 0.7959,
+        "precision": 0.8049,
+        "recall": 0.9429,
+        "macro_f1": 0.7069,
+        "roc_auc": 0.8224,
+        "brier_score": 0.1551
+      },
+      {
+        "name": "Logistic Regression (full_context)",
+        "kind": "model",
+        "feature_tier": "full_context",
+        "n_test": 49,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "macro_f1": 1.0,
+        "roc_auc": 1.0,
+        "brier_score": 0.0054
+      },
+      {
+        "name": "Gradient-Boosted Trees (full_context)",
+        "kind": "model",
+        "feature_tier": "full_context",
+        "n_test": 49,
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "macro_f1": 1.0,
+        "roc_auc": 1.0,
+        "brier_score": 0.0
+      }
+    ],
+    "beats_cvss_baseline": true,
+    "beats_majority_baseline": true,
+    "feature_weights": {
+      "cvss_norm": 0.6087,
+      "is_config_abuse": -0.6363,
+      "is_credential_access": 1.3394,
+      "is_lateral_move": 0.5667,
+      "is_kernel_cve": 0.0,
+      "host_asset_norm": 0.2406,
+      "reuse_count_norm": 0.2818,
+      "epss_prior": 0.1845,
+      "is_dual_homed": -0.2743,
+      "sudo_noexec": -4.7968,
+      "nosuid_mount": -4.1842,
+      "sshd_deny_users": -5.0705
+    },
+    "technique_priors": {
+      "T1021.004+T1550": {
+        "escalated": 98,
+        "attempted": 125,
+        "smoothed_probability": 0.7795
+      },
+      "T1548.001": {
+        "escalated": 33,
+        "attempted": 61,
+        "smoothed_probability": 0.5397
+      },
+      "T1548.003": {
+        "escalated": 32,
+        "attempted": 92,
+        "smoothed_probability": 0.3511
+      },
+      "T1552.001": {
+        "escalated": 36,
+        "attempted": 36,
+        "smoothed_probability": 0.9737
+      }
+    },
+    "caveats": [
+      "Excluded 20 not_executable record(s) so lab limitations are never treated as negatives.",
+      "Variant benchmark labels come from catalogue ground truth (offline); live Docker/VM verifier runs overwrite these with canary-verified outcomes."
+    ]
+  },
+  "remediation": {
+    "seed": 1337,
+    "variants_total": 40,
+    "variants_with_paths": 36,
+    "mean_paths_per_variant": 3.25,
+    "mean_greedy_fixes": 1,
+    "mean_greedy_cost": 1,
+    "mean_cvss_fixes": 3.14,
+    "mean_cvss_cost": 7.11,
+    "mean_random_fixes": 2.26,
+    "mean_random_cost": 4.69,
+    "greedy_optimal_rate": 1.0,
+    "cost_reduction_vs_cvss_pct": 85.94,
+    "cost_reduction_vs_random_pct": 78.68
+  },
+  "scalability": {
+    "seed": 1337,
+    "slo_ms": 5000.0,
+    "hardened_variants_checked": 4,
+    "hardened_false_alarm_paths": 0,
+    "decoys_examined_and_declined": 129,
+    "decoy_false_positive_rate": 0.0,
+    "scaling": [
+      {
+        "hosts": 4,
+        "paths": 0,
+        "p50_ms": 0.098,
+        "p95_ms": 0.203,
+        "p99_ms": 0.203,
+        "meets_5s_slo": true
+      },
+      {
+        "hosts": 8,
+        "paths": 0,
+        "p50_ms": 0.119,
+        "p95_ms": 0.129,
+        "p99_ms": 0.129,
+        "meets_5s_slo": true
+      },
+      {
+        "hosts": 16,
+        "paths": 0,
+        "p50_ms": 0.153,
+        "p95_ms": 0.229,
+        "p99_ms": 0.229,
+        "meets_5s_slo": true
+      },
+      {
+        "hosts": 32,
+        "paths": 0,
+        "p50_ms": 0.198,
+        "p95_ms": 0.52,
+        "p99_ms": 0.52,
+        "meets_5s_slo": true
+      },
+      {
+        "hosts": 64,
+        "paths": 0,
+        "p50_ms": 0.159,
+        "p95_ms": 0.336,
+        "p99_ms": 0.336,
+        "meets_5s_slo": true
+      }
+    ]
+  }
+}

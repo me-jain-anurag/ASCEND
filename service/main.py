@@ -54,6 +54,9 @@ FACTS_PATH             = Path(__file__).resolve().parent.parent / "environment_g
 MULTIBRANCH_FACTS_PATH = Path(__file__).resolve().parent.parent / "environment_graph" / "facts_multibranch.json"
 COLLECTION_REPORT_PATH = Path(__file__).resolve().parent.parent / "environment_graph" / "collection_report.json"
 OUTCOMES_PATH          = Path(__file__).resolve().parent.parent / "outcomes.jsonl"
+VARIANT_OUTCOMES_PATH  = Path(__file__).resolve().parent.parent / "eval" / "variant_outcomes.jsonl"
+BENCHMARK_SUMMARY_PATH = Path(__file__).resolve().parent.parent / "eval" / "benchmark_summary.json"
+HARDENED_BP_PATH       = Path(__file__).resolve().parent.parent / "generator" / "blueprints" / "hardened_baseline.yaml"
 
 def load_fixture(name: str) -> dict:
     file_path = FIXTURES_DIR / name
@@ -81,15 +84,23 @@ def _load_collection_report() -> dict:
 
 
 def _benign_facts(base_facts: dict) -> dict:
-    """Construct the hardened benign baseline: same hosts and reachability,
-    zero exploitable vectors, and owner-only credentials (mode 0600).
-    Enumerating this graph must yield 0 attack paths (zero false alarms).
+    """Load the real hardened_baseline.yaml blueprint (with decoy rules declined
+    by derivation) rather than stripping vectors from an attackable graph.
     """
+    if HARDENED_BP_PATH.exists():
+        try:
+            from generator.blueprint import load_blueprint
+            from generator.variants import blueprint_to_facts
+            bp = load_blueprint(HARDENED_BP_PATH)
+            facts, _ = blueprint_to_facts(bp)
+            return facts
+        except Exception:
+            pass
     benign = copy.deepcopy(base_facts)
     benign["vectors"] = []
     benign["credentials"] = []
     meta = dict(benign.get("_meta") or {})
-    meta["source"] = "benign:hardened-baseline"
+    meta["source"] = "blueprint:hardened_baseline"
     benign["_meta"] = meta
     return benign
 
@@ -387,6 +398,7 @@ state = {
 
 class ApplyFixRequest(BaseModel):
     fix_id: str
+    scenario: Optional[str] = None
 
 
 class EnumerateRequest(BaseModel):
@@ -478,7 +490,7 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
     scenario_names = {
         "default":      "4-Host Lab — environment_graph/facts.json",
         "multi_branch": "Multi-Branch Lab (app01 + ci01) — Chokepoint Demo",
-        "benign":       "Benign Hardened Baseline — Zero False Alarms",
+        "benign":       "Hardened Baseline — Collector Negative Controls",
     }
     report = _load_collection_report()
     return {
@@ -590,20 +602,38 @@ def _verifier_edges(path: dict, facts: dict) -> list[dict]:
             key_path = creds.get((cred_id, source_host)) if cred_id else None
 
             if not key_path:
-                # The attacker would carry a harvested key forward; the verifier
-                # cannot stage credentials between hops yet, so it says so
-                # instead of guessing a path.
-                # TODO(verifier): stage the harvested credential onto the source
-                # host so a hop can be verified even where the key is not
-                # already present.
+                # Stage the harvested credential from the upstream harvest host
+                # where it was originally discovered (cross-host credential staging).
+                harvest_loc = next(
+                    ((h, p) for (cid, h), p in creds.items() if cid == cred_id),
+                    None,
+                )
+                if harvest_loc:
+                    h_host, h_path = harvest_loc
+                    h_user = next(
+                        (a["username"] for a in facts.get("accounts", [])
+                         if a["host"] == h_host and a["privilege"] == "low"),
+                        "root",
+                    )
+                    edges.append({
+                        "host": source_host,
+                        "start_user": low_priv_user,
+                        "technique_id": technique_id,
+                        "params": {
+                            "key_source_host": h_host,
+                            "key_source_user": h_user,
+                            "key_source_path": h_path,
+                            "to_host": target_host,
+                            "to_user": step["target_account"]["username"],
+                        },
+                    })
+                    continue
                 edges.append({
                     "host": source_host,
                     "start_user": low_priv_user,
                     "technique_id": technique_id,
                     "unsupported": (
-                        f"no location recorded for credential "
-                        f"{cred_id or '(none)'} on {source_host}; the verifier "
-                        f"cannot yet carry a harvested credential between hops"
+                        f"no location recorded for credential {cred_id or '(none)'} on any host"
                     ),
                 })
                 continue
@@ -735,7 +765,7 @@ def _command_lines(raw_cmd: list[str] | None) -> list[str]:
 
 
 @app.post("/api/verify")
-def verify_paths(simulate: bool = Query(default=False)):
+def verify_paths(simulate: bool = Query(default=False), scenario: Optional[str] = Query(default=None)):
     """Execute each enumerated path in the lab and report what actually worked.
 
     Calls verifier.runner.verify_path IN-PROCESS against the live Docker lab.
@@ -743,7 +773,11 @@ def verify_paths(simulate: bool = Query(default=False)):
     returns HTTP 503 with actionable guidance unless ASCEND_ALLOW_SIMULATION=1
     is explicitly set in the environment and requested.
     """
-    facts = _load_facts()
+    if scenario in VALID_SCENARIOS and scenario != state["active_scenario"]:
+        state["active_scenario"] = scenario
+        state["applied_fixes"] = []
+        state["last_verification"] = None
+    facts = _load_facts(scenario)
     scope_data = _load_scope()
     effective = _effective_facts(facts, scope_data)
     paths_list = _build_paths_from_enumerator(effective, _baseline_path_ids(facts))
@@ -921,39 +955,62 @@ def get_remediation(scenario: Optional[str] = Query(default=None)):
 
 @app.get("/api/benign")
 def get_benign_controls():
-    """Legitimate configurations inspected by the collector and cleared with zero false alarms."""
+    """Negative controls inspected by the collector and declined as non-exploitable."""
     report = _load_collection_report()
     base_facts = _load_facts("default")
     benign = _benign_facts(base_facts)
     benign_paths = _enumerate_paths(benign)
+    skipped = list(report.get("skipped", []))
     return {
         "scenario": "benign",
         "hosts_probed": report.get("hosts_probed", [h["hostname"] for h in benign.get("hosts", [])]),
         "enumerated_paths": len(benign_paths),
         "false_alarms": len(benign_paths),
-        "conditions_examined_and_cleared": len(report.get("skipped", [])),
-        "negative_controls": report.get("skipped", []),
+        "conditions_examined_and_cleared": len(skipped),
+        "negative_controls": skipped,
         "summary": (
-            f"Inspected {len(report.get('skipped', []))} benign/hardened configuration(s) "
-            f"across {len(benign.get('hosts', []))} hosts; 0 false-alarm attack paths reported."
+            f"Collector examined and declined {len(skipped)} non-exploitable condition(s) "
+            f"in collection_report.json; hardened_baseline blueprint enumerates {len(benign_paths)} path(s)."
         ),
     }
 
 
 @app.get("/api/scores")
-def get_exploitability_scores(scenario: Optional[str] = Query(default=None)):
-    """ML exploitability probabilities trained on verified outcomes.jsonl records."""
+def get_exploitability_scores(
+    scenario: Optional[str] = Query(default=None),
+    source: str = Query(default="auto"),
+):
+    """ML exploitability probabilities with strict two-class honesty gate & named baselines."""
     facts = _load_facts(scenario)
     scope = _load_scope()
     effective = _effective_facts(facts, scope)
     paths = _build_paths_from_enumerator(effective, _baseline_path_ids(facts))
-    return _score_environment(effective, paths, OUTCOMES_PATH)
+    if source == "lab":
+        target_outcomes = OUTCOMES_PATH
+    elif source == "variants" or (source == "auto" and VARIANT_OUTCOMES_PATH.exists()):
+        target_outcomes = VARIANT_OUTCOMES_PATH
+    else:
+        target_outcomes = OUTCOMES_PATH
+    return _score_environment(effective, paths, target_outcomes)
+
+
+@app.get("/api/benchmark")
+def get_benchmark_summary():
+    """Return script-generated multi-variant benchmark tables (eval/benchmark_summary.json)."""
+    if not BENCHMARK_SUMMARY_PATH.exists():
+        raise HTTPException(status_code=404, detail="Run `python3 eval/benchmark.py` to generate benchmark_summary.json")
+    with open(BENCHMARK_SUMMARY_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 @app.post("/api/remediation/apply")
 def apply_remediation(req: ApplyFixRequest):
-    """Applies a fix, then re-enumerates to report which paths it eliminated."""
-    facts = _load_facts()
+    """Applies a fix (in-memory what-if projection), then re-enumerates."""
+    if req.scenario in VALID_SCENARIOS and req.scenario != state["active_scenario"]:
+        state["active_scenario"] = req.scenario
+        state["applied_fixes"] = []
+        state["last_verification"] = None
+    facts = _load_facts(req.scenario)
     scope = _load_scope()
 
     valid = _known_fix_ids(facts, scope)

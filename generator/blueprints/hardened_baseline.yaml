@@ -1,0 +1,36 @@
+# Hardened baseline blueprint — real negative controls, zero exploitable vectors.
+# Unlike stripping vectors in memory, this blueprint plants legitimate admin
+# configurations (safe NOPASSWD /bin/ls and /bin/df decoys, patched kernels)
+# that collectors/derive.py must inspect and decline, yielding 0 attack paths.
+scenario: hardened_baseline
+description: >-
+  Hardened 4-host baseline with decoy NOPASSWD rules and patched kernels.
+  Exercises collector discrimination rather than deleting vectors after the fact.
+
+hosts:
+  - id: web01
+    role: web
+    asset: 10
+    weaknesses: []
+
+  - id: app01
+    role: app
+    asset: 30
+    weaknesses:
+      - id: decoy_nopasswd
+        params: { binary: "/bin/ls" }
+
+  - id: ci01
+    role: ci
+    asset: 50
+    weaknesses:
+      - id: decoy_nopasswd
+        params: { binary: "/bin/df" }
+
+  - id: db01
+    role: database
+    asset: 100
+    weaknesses: []
+
+entry:       { host: web01, account: www-data, privilege: low }
+crown_jewel: { host: db01,  privilege: root }

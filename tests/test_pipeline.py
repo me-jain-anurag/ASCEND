@@ -543,8 +543,25 @@ def test_responses_match_the_typescript_interfaces():
                     "lab_environment": _STR, "summary_metrics": dict}, "StatusData")
     _check(status["summary_metrics"], _METRICS, "StatusMetrics")
 
+    import os
     vresp = client.post("/api/verify")
-    if vresp.status_code != 503:
+    if vresp.status_code == 503:
+        assert isinstance(vresp.json().get("detail"), str) and vresp.json()["detail"]
+        # Still enforce the VerifyData TypeScript contract via explicit opt-in simulation
+        prev_sim = os.environ.get("ASCEND_ALLOW_SIMULATION")
+        os.environ["ASCEND_ALLOW_SIMULATION"] = "1"
+        try:
+            sresp = client.post("/api/verify?simulate=true")
+            assert sresp.status_code == 200, sresp.text
+            sdata = sresp.json()
+            assert sdata.get("simulated") is True
+            _check(sdata, _VERIFY, "VerifyData")
+        finally:
+            if prev_sim is None:
+                os.environ.pop("ASCEND_ALLOW_SIMULATION", None)
+            else:
+                os.environ["ASCEND_ALLOW_SIMULATION"] = prev_sim
+    else:
         _check(vresp.json(), _VERIFY, "VerifyData")
 
 
@@ -772,25 +789,23 @@ def test_verifier_commands_split_into_shell_lines():
 # ─── Hardening, Benign, Multi-Branch & ML Scorer regressions ──────────────────
 
 def test_verify_returns_503_when_docker_unavailable_no_silent_fake():
-    """Never silently fake verification passes when Docker is unreachable."""
+    """Deterministically verify 503 when Docker is unreachable (no silent fake)."""
     try:
         from fastapi.testclient import TestClient
     except ImportError:
         raise Skip("fastapi not installed")
     import os
+    from unittest.mock import patch
     sys.path.insert(0, str(ROOT / "service"))
     import main
     os.environ.pop("ASCEND_ALLOW_SIMULATION", None)
     client = TestClient(main.app)
     client.post("/api/reset")
 
-    resp = client.post("/api/verify")
-    if resp.status_code == 200:
-        # Live Docker lab is running — ensure nothing was simulated.
-        assert resp.json().get("simulated") is False
-    else:
-        assert resp.status_code == 503, resp.status_code
-        assert "detail" in resp.json() and resp.json()["detail"]
+    with patch("verifier.runner.verify_path", side_effect=FileNotFoundError("docker.sock missing")):
+        resp = client.post("/api/verify")
+    assert resp.status_code == 503, resp.status_code
+    assert "detail" in resp.json() and resp.json()["detail"]
 
 
 def test_t1552_001_step_is_preserved_in_paths_and_verifier_edges():
@@ -863,7 +878,7 @@ def test_multibranch_scenario_chokepoint_beats_cvss_first():
 
 
 def test_scorer_trains_cleanly_and_excludes_not_executable_and_mismatches():
-    """Scorer must exclude not_executable rows and flag cross-host batch param mismatches."""
+    """Scorer refuses to claim trained on single-class data, and beats baselines on two-class variants."""
     from scorer.model import score_environment
     facts, _ = _facts_from_capture()
     raw_paths = enumerate_paths(facts)
@@ -882,15 +897,29 @@ def test_scorer_trains_cleanly_and_excludes_not_executable_and_mismatches():
         }
         for i, p in enumerate(raw_paths, 1)
     ]
-    res = score_environment(facts, paths, ROOT / "outcomes.jsonl")
-    m = res["model"]
-    assert m["trained"] is True
-    assert m["records_excluded_not_executable"] == 40
-    assert m["records_flagged_param_mismatch"] == 80
-    assert m["records_trainable"] == 160
-    assert len(res["path_scores"]) == len(paths)
-    # Path containing T1068 must be flagged as containing an unverified-in-lab step
-    assert any(ps["contains_unverified_step"] for ps in res["path_scores"].values())
+    # 1. Single-class legacy outcomes.jsonl -> honestly UNTRAINED, empty path_scores
+    single = score_environment(facts, paths, ROOT / "outcomes.jsonl")
+    sm = single["model"]
+    assert sm["trained"] is False
+    assert sm["status"] == "untrained_single_class"
+    assert sm["records_excluded_not_executable"] > 0
+    assert sm["records_flagged_param_mismatch"] > 0
+    assert sm["records_trainable"] > 0
+    assert single["path_scores"] == {}
+
+    # 2. Multi-variant two-class outcomes -> genuinely trained & beats CVSS >= 7 and Majority baselines
+    variant_path = ROOT / "eval" / "variant_outcomes.jsonl"
+    assert variant_path.exists(), "run python3 eval/benchmark.py first"
+    multi = score_environment(facts, paths, variant_path)
+    mm = multi["model"]
+    assert mm["trained"] is True
+    assert mm["records_positives"] >= 2 and mm["records_negatives"] >= 2
+    assert len(mm["baselines"]) == 3
+    assert len(mm["ablations"]) >= 3
+    assert mm["beats_cvss_baseline"] is True
+    assert mm["beats_majority_baseline"] is True
+    assert len(multi["path_scores"]) == len(paths)
+    assert any(ps["contains_unverified_step"] for ps in multi["path_scores"].values())
 
 
 def test_pathfinder_pivot_selection_is_deterministic():

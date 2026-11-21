@@ -1,0 +1,30 @@
+# T1550 + T1021.004 runtime-mitigated negative — reused SSH key blocked by sshd policy.
+# The shared deploy key is present in authorized_keys (so fingerprint matching
+# detects credential reuse statically), but sshd_config denies the account via
+# DenyUsers, so live lateral SSH authentication fails (`not_escalated`).
+id: ssh_key_blocked_allowusers
+title: "Reused SSH key blocked by sshd DenyUsers policy (runtime-mitigated)"
+technique: T1550
+executable_in: either
+kind: runtime_mitigated
+expected_outcome: not_escalated
+mitigation: sshd_deny_users
+cross_host: true
+summary: >-
+  {user}'s authorized_keys contains the shared deploy key, but sshd enforces
+  DenyUsers {user}. Static key-reuse checks flag the host; live verification
+  confirms SSH login is rejected.
+
+needs: [account]
+
+seed: |
+  ascend_authorize {user}
+  mkdir -p /etc/ssh/sshd_config.d
+  printf 'DenyUsers %s\n' '{user}' > /etc/ssh/sshd_config.d/99-ascend-restrict.conf
+
+verify:
+  adapter: lateral_ssh
+  check: canary_on_target
+  scope: lateral
+  requires_unprivileged_start: false
+  start_user: www-data

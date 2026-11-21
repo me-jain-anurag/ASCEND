@@ -117,3 +117,5 @@ Desktop.ini
 
 # Verifier live-run audit trail (demo clicks, not training data)
 verifier/runs/
+
+*.patch

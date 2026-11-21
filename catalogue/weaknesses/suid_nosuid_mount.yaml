@@ -1,0 +1,38 @@
+# T1548.001 runtime-mitigated negative — SUID binary under a nosuid-restricted path.
+# Statically, the binary carries the setuid bit (04755) and is on the GTFOBins
+# list, so a static scanner flags it. At runtime, the directory is mounted with
+# nosuid (or owned by a non-root service account in container fallback), so the
+# effective UID never becomes 0 and the verifier records `not_escalated`.
+id: suid_nosuid_mount
+title: "SUID binary neutralized by nosuid / non-root owner (runtime-mitigated)"
+technique: T1548.001
+executable_in: either
+kind: runtime_mitigated
+expected_outcome: not_escalated
+mitigation: nosuid_mount
+summary: >-
+  A copy of {suid_path} carries the setuid bit at {mitigated_path}, but is
+  owned by {user} (non-root) / placed under a nosuid boundary, so executing it
+  never grants euid=0.
+
+needs: [account]
+
+params:
+  suid_path: "/usr/bin/find"
+  mitigated_path: "/opt/nosuid-tools/find"
+  payload_template: "/opt/nosuid-tools/find /etc/hostname -exec /bin/sh -p -c 'cat {canary}' \\; -quit"
+
+seed: |
+  install -d -m 755 /opt/nosuid-tools
+  cp {suid_path} {mitigated_path}
+  chown {user}:{user} {mitigated_path}
+  chmod 4755 {mitigated_path}
+
+verify:
+  adapter: config_abuse
+  check: suid_binary
+  scope: local
+  start_user: "{user}"
+  params:
+    suid_path: "{mitigated_path}"
+    payload_template: "{payload_template}"
