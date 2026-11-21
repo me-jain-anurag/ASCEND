@@ -19,6 +19,7 @@ import sys
 from generator.blueprint import load_blueprint, validate
 from generator.catalogue import ROOT, load_host_types, load_weaknesses
 from generator.emit import emit_compose, emit_seed
+from generator.scope import emit_scope
 
 LAB = ROOT / "lab"
 # Static scaffolding copied verbatim from lab/ into a generated lab.
@@ -41,6 +42,9 @@ def generate(blueprint_path: str, out_dir: str, backend: str = "container") -> l
 
     (out / "docker-compose.yml").write_text(emit_compose(blueprint, roles, weaknesses))
     written.append("docker-compose.yml")
+
+    (out / "scope.yaml").write_text(emit_scope(blueprint, roles, weaknesses))
+    written.append("scope.yaml")
 
     shutil.copy2(LAB / "seed" / "common.sh", out / "seed" / "common.sh")
     written.append("seed/common.sh")

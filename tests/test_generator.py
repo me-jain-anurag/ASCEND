@@ -11,11 +11,21 @@ import pathlib
 
 import pytest
 
+import yaml
+
 from generator.blueprint import load_blueprint, normalize_weaknesses, validate
 from generator.catalogue import ROOT, load_host_types, load_weaknesses
 from generator.emit import emit_compose, emit_seed
+from generator.scope import (build_inventory, build_verifier_techniques,
+                             emit_scope)
 
 CURRENT_LAB = ROOT / "generator" / "blueprints" / "current_lab.yaml"
+REPO_SCOPE = ROOT / "scope.yaml"
+
+
+@pytest.fixture(scope="module")
+def repo_scope():
+    return yaml.safe_load(REPO_SCOPE.read_text())
 
 
 @pytest.fixture(scope="module")
@@ -182,3 +192,56 @@ def test_compose_networks_match_topology(current_lab, roles, weaknesses):
     assert "  web01:" in compose and "networks: [dmz]" in compose
     assert "networks: [core]" in compose           # db01
     assert "networks: [dmz, core]" in compose      # app01 / ci01
+
+
+# ── scope.yaml emission & parity with the hand-written scope.yaml ─────────────
+
+def test_inventory_matches_repo_scope(current_lab, repo_scope):
+    assert build_inventory(current_lab) == repo_scope["inventory"]
+
+
+def _by_id(entries):
+    return {e["id"]: e for e in entries}
+
+
+def test_verifier_techniques_match_repo_scope(current_lab, roles, weaknesses, repo_scope):
+    gen = _by_id(build_verifier_techniques(current_lab, roles, weaknesses))
+    repo = _by_id(repo_scope["verifier"]["techniques"])
+    assert set(gen) == set(repo), "verifier technique ids differ"
+    for tid in repo:
+        g, r = dict(gen[tid]), dict(repo[tid])
+        # declared_kernel_note is human-readable prose; compare its presence, not text
+        g.pop("declared_kernel_note", None)
+        note_r = r.pop("declared_kernel_note", None)
+        assert g == r, f"verifier entry {tid} differs:\n gen={g}\n repo={r}"
+    # both must carry the kernel note for T1068
+    assert repo_scope and _by_id(build_verifier_techniques(current_lab, roles, weaknesses))["T1068"].get("declared_kernel_note")
+
+
+def test_lateral_entry_aggregates_reused_key_hosts(current_lab, roles, weaknesses):
+    entries = _by_id(build_verifier_techniques(current_lab, roles, weaknesses))
+    lat = entries["T1021.004+T1550"]
+    assert lat["adapter"] == "lateral_ssh"
+    assert lat["requires_unprivileged_start"] is False
+    assert lat["hosts"] == ["web01", "app01", "db01"]
+    assert lat["start_user"] == "www-data"
+    assert lat["key_path"] == "/var/www/.ssh/id_rsa"
+    assert lat["to_host"] == "app01" and lat["to_user"] == "appuser"
+
+
+def test_decoy_produces_no_verifier_entry(current_lab, roles, weaknesses):
+    entries = build_verifier_techniques(current_lab, roles, weaknesses)
+    blob = repr(entries)
+    assert "/bin/ls" not in blob
+    # exactly five verifier entries (sudo, cred, lateral, suid, cve) — decoy excluded
+    assert len(entries) == 5
+
+
+def test_emit_scope_is_valid_and_keeps_static_sections(current_lab, roles, weaknesses):
+    data = yaml.safe_load(emit_scope(current_lab, roles, weaknesses))
+    for section in ("techniques", "rules", "remediation", "inventory", "verifier"):
+        assert section in data, f"missing {section}"
+    # runtime placeholder survives into the emitted sudo payload
+    sudo = next(t for t in data["verifier"]["techniques"] if t["id"] == "T1548.003")
+    assert "{canary}" in sudo["payload_template"]
+    assert sudo["sudo_target"] == "/bin/tar"
