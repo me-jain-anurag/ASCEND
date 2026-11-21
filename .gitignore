@@ -103,7 +103,7 @@ Desktop.ini
 .idea/
 *.iml
 
-# ── Claude Code: keep settings.json + skills + hooks tracked; ignore local-only ──
+# ── Claude Code: keep skills tracked; ignore local-only ──
 .claude/settings.local.json
 .claude/worktrees/
 .claude/**/*.local.*

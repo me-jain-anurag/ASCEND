@@ -21,9 +21,6 @@ initiative. Everything else — `push`, `switch`/`checkout`, `branch`, `merge`, 
 and every `gh` write — is still drafted for a human to run, so a task that needs a new branch still needs one
 pasted command from the user before Claude can commit onto it.
 
-A `PreToolUse` hook (`.claude/hooks/guard_git.py`) enforces this: if a write command is attempted through Bash, the
-hook blocks it. Do not try to work around the hook — drafting is the intended path, not a fallback.
-
 ## When this applies
 Any state-changing git/GitHub command **except the `add`/`commit` exception above**, including: `rm`, `mv`, `push`, `pull`, `fetch`+merge,
 `merge`, `rebase`, `reset`, `revert`, `cherry-pick`, `branch` (create/delete/move), `checkout`/`switch` (new branch
