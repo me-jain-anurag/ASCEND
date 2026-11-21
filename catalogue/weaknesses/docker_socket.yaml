@@ -1,0 +1,25 @@
+# T1611 — Escape to Host (exposed Docker socket).
+# STATUS: planned — defined in scope.yaml (technique + remediation) but not yet
+# plantable by the generator, because exposing the socket is a compose-level bind
+# mount plus docker-group membership, not a seed fragment, and there is no verify
+# adapter for it yet. Encoded here so the catalogue is complete and the gap is
+# explicit; the generator refuses to place a `planned` weakness until it is wired.
+id: docker_socket
+title: "Exposed Docker socket (container escape)"
+technique: T1611
+executable_in: either
+status: planned
+summary: >-
+  A container with /var/run/docker.sock bind-mounted (and docker-group access) is
+  root-equivalent on the host. Needs: a compose volume mount on the host, a
+  reachability/collector note, and a verify adapter. Not yet implemented.
+
+# When implemented, this weakness will add to the host's compose service:
+#   volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+# and a verify entry (adapter TBD). Tracked in docs/10 build order step 2+.
+host_build:
+  mounts: ["/var/run/docker.sock:/var/run/docker.sock"]
+
+verify:
+  adapter: null   # not implemented
+  scope: local

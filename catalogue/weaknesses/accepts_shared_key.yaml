@@ -1,0 +1,41 @@
+# T1550 + T1021.004 — Use Alternate Authentication Material + Remote Services: SSH.
+# This host accepts the shared deploy key in authorized_keys. On its own that is
+# not a finding; the VECTOR emerges when two or more hosts accept the SAME key,
+# which probes/ssh_keys.py detects by fingerprint match. So this weakness is
+# cross-host: the generator aggregates every host carrying it into ONE lateral
+# verify entry (the verifier's allowed START hosts), as scope.yaml does today.
+id: accepts_shared_key
+title: "Accepts the reused deploy key (credential reuse)"
+technique: T1550
+executable_in: either
+cross_host: true
+summary: >-
+  {user} on this host accepts the shared app deploy key. When more than one host
+  accepts it, one disclosure (see readable_ssh_key) reaches all of them — the key
+  is the chokepoint.
+
+needs: [account]
+
+# Authorize the shared key for this account (half of the reuse on each host).
+seed: |
+  ascend_authorize {user}
+
+# A negative control the app tier carries: the SAME key stored CORRECTLY at 0600,
+# which the collector must fingerprint, match, and still decline to report because
+# only its owner can read it. Enabled per-host via params.store_correct_copy.
+realism: |
+  install -d -m 700 -o {user} -g {user} {home}/.ssh
+  install -m 600 -o {user} -g {user} {key_src} {home}/.ssh/id_rsa
+
+params:
+  store_correct_copy: false   # app01 sets this true; db01 leaves it false
+
+# scope: lateral — the generator emits a single aggregated verifier entry with
+# hosts = the harvest host plus every host carrying this weakness, and per-edge
+# key_path/to_host/to_user supplied from the enumerated path (service/main.py).
+verify:
+  adapter: lateral_ssh
+  check: canary_on_target
+  scope: lateral
+  requires_unprivileged_start: false
+  start_user: www-data

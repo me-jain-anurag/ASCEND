@@ -1,0 +1,41 @@
+# Blueprint that reproduces the hand-written 4-host container lab (lab/).
+# Parity target for the generator: building this must yield the same hosts,
+# networks, planted vectors and negative controls as lab/ today.
+scenario: current_lab
+description: >-
+  The default ASCEND lab: web01 (entry) -> app01 / ci01 (dual-homed pivots) ->
+  db01 (crown jewel). ci01 carries no weaknesses yet.
+
+hosts:
+  - id: web01
+    role: web
+    asset: 10
+    weaknesses: [readable_ssh_key]
+
+  - id: app01
+    role: app
+    asset: 30
+    weaknesses:
+      - id: nopasswd_sudo
+        params: { binary: "/bin/tar" }
+      - id: decoy_nopasswd
+        params: { binary: "/bin/ls" }          # NOPASSWD, no escape = negative control
+      - id: accepts_shared_key
+        params: { store_correct_copy: true }   # 0600 copy = negative control
+
+  - id: ci01
+    role: ci
+    asset: 50
+    weaknesses: []        # in the topology, nothing planted yet
+
+  - id: db01
+    role: database
+    asset: 100
+    weaknesses:
+      - accepts_shared_key
+      - id: suid_binary
+        params: { suid_path: "/usr/bin/find" }
+      - dirtypipe_kernel   # declared kernel 5.16.0; executable only on a VM
+
+entry:       { host: web01, account: www-data, privilege: low }
+crown_jewel: { host: db01,  privilege: root }
