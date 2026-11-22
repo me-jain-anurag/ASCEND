@@ -5,3 +5,5 @@ pydantic==2.14.1
 pyyaml==6.0.3
 # starlette's TestClient (used by the API contract tests) needs httpx
 httpx==0.28.1
+scikit-learn>=1.4.0
+scipy>=1.12.0

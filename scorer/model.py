@@ -480,6 +480,19 @@ def score_environment(
     ) -> dict[str, Any]:
         feats = extract_features(host, tech_id, facts, vector=vector, credential=credential)
         model_p = float(model.predict_proba(np.array([feats]))[0])
+        cve_id = (vector or {}).get("cve")
+        if cve_id:
+            try:
+                from scorer.real_cve_inference import score_cve_record
+                cve_res = score_cve_record({"cve": cve_id, "cvss": (vector or {}).get("cvss"), "description": (vector or {}).get("description", "")})
+            except Exception:
+                cve_res = None
+            if cve_res is not None:
+                return {
+                    "probability": cve_res["probability"],
+                    "confidence": "unverified_in_lab" if tech_id.startswith("T1068") else "real_cve_model",
+                    "basis": cve_res["basis"] + (" (container-unverified kernel step)" if tech_id.startswith("T1068") else ""),
+                }
         if tech_id.startswith("T1068"):
             prob = round(min(model_p, 0.5), 4)
             basis = "unverified in container lab (prior capped at 0.50)"
@@ -531,8 +544,15 @@ def score_environment(
             "steps": step_results,
         }
 
+    real_cve_bench = None
+    try:
+        from scorer.real_cve_inference import load_real_cve_benchmark
+        real_cve_bench = load_real_cve_benchmark()
+    except Exception:
+        real_cve_bench = None
     return {
         "model": report.to_dict(),
         "vector_scores": vector_scores,
         "path_scores": path_scores,
+        "real_cve_benchmark": real_cve_bench,
     }

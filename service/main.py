@@ -8,7 +8,9 @@ import sys
 import uuid
 from pathlib import Path
 from typing import Any, Optional, List
+from collections import deque
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -110,14 +112,67 @@ def _load_facts(scenario: str | None = None) -> dict:
     sc = scenario or state.get("active_scenario", "default")
     if sc == "multi_branch" and MULTIBRANCH_FACTS_PATH.exists():
         with open(MULTIBRANCH_FACTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            return _merge_extra_hosts(json.load(f))
     if not FACTS_PATH.exists():
         raise HTTPException(status_code=500, detail="environment_graph/facts.json not found")
     with open(FACTS_PATH, "r", encoding="utf-8") as f:
         base = json.load(f)
     if sc == "benign":
-        return _benign_facts(base)
-    return base
+        facts = _benign_facts(base)
+    else:
+        facts = base
+    return _merge_extra_hosts(facts)
+
+
+def _merge_extra_hosts(base_facts: dict) -> dict:
+    """Overlay any hot-added hosts (POST /api/hosts/add) onto the active graph."""
+    extras = state.get("extra_hosts") or []
+    if not extras:
+        return base_facts
+    from generator.catalogue import load_host_types, load_weaknesses
+    from generator.variants import blueprint_to_facts
+
+    roles = load_host_types()
+    weaknesses = load_weaknesses()
+    merged = copy.deepcopy(base_facts)
+    existing_hosts = {h["hostname"] for h in merged.get("hosts", [])}
+    host_roles = {h["hostname"]: h.get("role", "app") for h in merged.get("hosts", [])}
+
+    for extra in extras:
+        hid = extra["id"]
+        if hid in existing_hosts:
+            continue
+        bp = {
+            "scenario": "hot_add",
+            "hosts": [extra],
+            "entry": merged["entry"],
+            "crown_jewel": merged["crown_jewel"],
+        }
+        efacts, _ = blueprint_to_facts(bp, roles=roles, weaknesses=weaknesses)
+        merged["hosts"].extend(efacts["hosts"])
+        merged["accounts"].extend(efacts["accounts"])
+        merged["vectors"].extend(efacts["vectors"])
+
+        # Connect reachability to existing hosts sharing the new host's role networks
+        new_nets = set(extra.get("networks") or roles[extra["role"]].get("networks") or [])
+        for eh, erole in host_roles.items():
+            enets = set((roles.get(erole) or {}).get("networks") or [])
+            if new_nets & enets:
+                merged["reachability"].append({"from": eh, "to": hid, "port": 22, "service": "ssh"})
+                merged["reachability"].append({"from": hid, "to": eh, "port": 22, "service": "ssh"})
+
+        # If the hot-added host accepts the shared key, extend existing credential grants
+        w_ids = [w if isinstance(w, str) else w.get("id") for w in (extra.get("weaknesses") or [])]
+        if "accepts_shared_key" in w_ids and merged.get("credentials"):
+            acct = roles[extra["role"]]["account"]["name"]
+            cred = merged["credentials"][0]
+            if not any(g["host"] == hid for g in cred.get("grants", [])):
+                cred["grants"].append({"host": hid, "account": acct, "privilege": "low"})
+                cred.setdefault("features", {})["reuse_count"] = len(cred["grants"])
+
+        existing_hosts.add(hid)
+        host_roles[hid] = extra["role"]
+    return merged
 
 
 def _load_scope() -> dict:
@@ -393,12 +448,38 @@ def _build_paths_from_enumerator(facts: dict, id_map: dict | None = None) -> lis
 state = {
     "active_scenario": "default",
     "applied_fixes": [],
+    "extra_hosts": [],
 }
+
+_EVENT_LOG: deque[dict[str, Any]] = deque(maxlen=120)
+_EVENT_SEQ = 0
+
+
+def _emit_event(stage: str, message: str, detail: dict[str, Any] | None = None) -> dict[str, Any]:
+    global _EVENT_SEQ
+    _EVENT_SEQ += 1
+    ev = {
+        "id": _EVENT_SEQ,
+        "ts": _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat(),
+        "stage": stage,
+        "message": message,
+        "detail": detail or {},
+    }
+    _EVENT_LOG.append(ev)
+    return ev
 
 
 class ApplyFixRequest(BaseModel):
     fix_id: str
     scenario: Optional[str] = None
+    mode: str = "what_if"  # "what_if" (Assessment) | "live_lab" (executes real fix in container)
+
+
+class HotAddHostRequest(BaseModel):
+    hostname: str
+    role: str = "database"
+    asset_value: int = 80
+    weaknesses: List[Any] = ["accepts_shared_key", "nopasswd_sudo"]
 
 
 class EnumerateRequest(BaseModel):
@@ -492,6 +573,7 @@ def enumerate_paths_endpoint(payload: Optional[EnumerateRequest] = None):
         "multi_branch": "Multi-Branch Lab (app01 + ci01) — Chokepoint Demo",
         "benign":       "Hardened Baseline — Collector Negative Controls",
     }
+    _emit_event("enumerate", f"Enumerated {n} path(s) in scenario={req_scenario}", {"scenario": req_scenario, "total_paths": n})
     report = _load_collection_report()
     return {
         "scenario":    req_scenario,
@@ -939,6 +1021,7 @@ def verify_paths(simulate: bool = Query(default=False), scenario: Optional[str] 
         "results": results,
     }
     state["last_verification"] = resp
+    _emit_event("verify", f"Verification finished: {verified_count} verified, {partial_count} partial, {tested - verified_count - partial_count} failed", resp["summary"])
     return resp
 
 
@@ -994,6 +1077,16 @@ def get_exploitability_scores(
     return _score_environment(effective, paths, target_outcomes)
 
 
+@app.get("/api/scores/cve-benchmark")
+def get_real_cve_benchmark():
+    """Return real-world NVD + Exploit-DB + CISA KEV + FIRST EPSS temporal benchmark."""
+    from scorer.real_cve_inference import load_real_cve_benchmark
+    data = load_real_cve_benchmark()
+    if not data:
+        raise HTTPException(status_code=404, detail="Run `python3 scorer/train_real_cve_model.py` first")
+    return data
+
+
 @app.get("/api/benchmark")
 def get_benchmark_summary():
     """Return script-generated multi-variant benchmark tables (eval/benchmark_summary.json)."""
@@ -1021,28 +1114,53 @@ def apply_remediation(req: ApplyFixRequest):
                    f"Known fixes: {', '.join(valid)}",
         )
 
-    if req.fix_id not in state["applied_fixes"]:
-        state["applied_fixes"].append(req.fix_id)
-
     plan = _build_remediation(facts, scope)
     target_fix = next(f for f in plan["ranked_fixes"] if f["fix_id"] == req.fix_id)
 
+    live_result = None
+    if req.mode == "live_lab":
+        from chokepoint.remediate import execute_live_remediation
+        vec = next(
+            (v for v in facts.get("vectors", []) if v["vector_id"] == target_fix["target_vector"]),
+            {"technique": target_fix["technique_broken"], "features": {}},
+        )
+        try:
+            live_result = execute_live_remediation(target_fix["target_host"], vec)
+            if not live_result["applied_live"]:
+                raise RuntimeError(live_result.get("stderr") or f"exit {live_result['exit_code']}")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Live lab remediation failed on {target_fix['target_host']}: {_verify_failure_detail(exc)}",
+            )
+
+    if req.fix_id not in state["applied_fixes"]:
+        state["applied_fixes"].append(req.fix_id)
+
     eliminated = _eliminated_path_ids(facts, scope, state["applied_fixes"])
     remaining = len(_enumerate_paths(_effective_facts(facts, scope)))
+    _emit_event(
+        "remediate",
+        f"Applied {req.fix_id} ({req.mode}) on {target_fix['target_host']}: {len(eliminated)} eliminated, {remaining} remaining",
+        {"fix_id": req.fix_id, "mode": req.mode, "paths_remaining": remaining},
+    )
 
     return {
         "status":       "applied",
+        "mode":         req.mode,
+        "live_execution": live_result,
         "applied_fix":  target_fix,
         "all_applied_fixes":   list(state["applied_fixes"]),
         "eliminated_path_ids": eliminated,
         "paths_remaining":     remaining,
         "message": (
-            f"Applied '{target_fix['title']}'. Re-enumerated the graph: "
+            f"Applied '{target_fix['title']}' ({req.mode}). Re-enumerated the graph: "
             f"{len(eliminated)} path(s) eliminated, {remaining} remaining."
         ),
         "_method": (
-            "paths_remaining is the length of a fresh enumerate_paths() run "
-            "over the patched facts, not a filtered list."
+            "Executed real container hardening command and re-enumerated."
+            if req.mode == "live_lab"
+            else "What-if in-memory projection: fresh enumerate_paths() run over patched facts."
         ),
     }
 
@@ -1199,14 +1317,71 @@ def get_knowledge():
     }
 
 
+@app.post("/api/hosts/add")
+def hot_add_host(req: HotAddHostRequest):
+    """Hot-add a catalogue-validated host to the active topology (docs/10 section 6.4)."""
+    from generator.blueprint import validate as _validate_bp
+    from generator.catalogue import load_host_types, load_weaknesses
+
+    roles = load_host_types()
+    weaknesses = load_weaknesses()
+    host_entry = {
+        "id": req.hostname,
+        "role": req.role,
+        "asset": req.asset_value,
+        "weaknesses": req.weaknesses,
+    }
+    probe_bp = {
+        "hosts": [host_entry],
+        "entry": {"host": req.hostname},
+        "crown_jewel": {"host": req.hostname},
+    }
+    errs = _validate_bp(probe_bp, roles=roles, weaknesses=weaknesses)
+    if errs:
+        raise HTTPException(status_code=422, detail="; ".join(errs))
+
+    state["extra_hosts"] = [h for h in state["extra_hosts"] if h["id"] != req.hostname]
+    state["extra_hosts"].append(host_entry)
+    facts = _load_facts()
+    paths = _enumerate_paths(_effective_facts(facts, _load_scope()))
+    _emit_event(
+        "hot_add",
+        f"Hot-added {req.hostname} ({req.role}, asset={req.asset_value}); {len(paths)} path(s) enumerated",
+        {"hostname": req.hostname, "role": req.role, "total_paths": len(paths)},
+    )
+    return {
+        "status": "added",
+        "hostname": req.hostname,
+        "hosts_count": len(facts["hosts"]),
+        "total_paths": len(paths),
+    }
+
+
+@app.get("/api/events/recent")
+def get_recent_events():
+    """Return recent pipeline events as JSON."""
+    return {"events": list(_EVENT_LOG)}
+
+
+@app.get("/api/events")
+def stream_events():
+    """Server-Sent Events (SSE) stream of live ASCEND pipeline activity."""
+    def _gen():
+        for ev in list(_EVENT_LOG):
+            yield f"id: {ev['id']}\nevent: {ev['stage']}\ndata: {json.dumps(ev)}\n\n"
+    return StreamingResponse(_gen(), media_type="text/event-stream")
+
+
 @app.post("/api/reset")
 def reset_state():
-    """Reset demo run state: un-apply every fix."""
+    """Reset demo run state: un-apply every fix and clear hot-added hosts."""
     state["active_scenario"] = "default"
     state["applied_fixes"] = []
+    state["extra_hosts"] = []
     state["last_verification"] = None
+    _emit_event("reset", "Demo state reset to default scenario")
     return {"status": "reset",
-            "message": "Demo state reset. All fixes un-applied."}
+            "message": "Demo state reset. All fixes un-applied and hot-added hosts cleared."}
 
 
 

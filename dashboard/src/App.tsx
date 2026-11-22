@@ -358,6 +358,10 @@ export default function App() {
   const [selectedPath, setSelectedPath] = useState<AttackPath | null>(null);
   const [appliedFixes, setAppliedFixes] = useState<string[]>([]);
   const [applying, setApplying] = useState<string | null>(null);
+  const [applyMode, setApplyMode] = useState<"what_if" | "live_lab">("what_if");
+  const [addingHost, setAddingHost] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [eventLog, setEventLog] = useState<Array<{ id: number; ts: string; stage: string; message: string }>>([]);
 
   // Loading / error
   const [loading, setLoading] = useState(false);
@@ -378,6 +382,9 @@ export default function App() {
         api.get<BenignData>('/api/benign'),
         api.get<ScorerData>(`/api/scores?scenario=${sc}`),
       ]);
+      api.get<{ events: Array<{ id: number; ts: string; stage: string; message: string }> }>("/api/events/recent")
+        .then(ev => setEventLog(ev.events ?? []))
+        .catch(() => {});
       setNetwork(net);
       setPaths(pth);
       setRemediation(rem);
@@ -443,10 +450,28 @@ export default function App() {
     setSelectedPath(null);
   };
 
+  const handleHotAddHost = async () => {
+    setAddingHost(true);
+    setError(null);
+    try {
+      await api.post('/api/hosts/add', {
+        hostname: 'db02',
+        role: 'database',
+        asset_value: 80,
+        weaknesses: ['accepts_shared_key', 'nopasswd_sudo'],
+      });
+      await fetchAll(scenario);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to hot-add host');
+    } finally {
+      setAddingHost(false);
+    }
+  };
+
   const handleApplyFix = async (fixId: string) => {
     setApplying(fixId);
     try {
-      await api.post('/api/remediation/apply', { fix_id: fixId, scenario });
+      await api.post('/api/remediation/apply', { fix_id: fixId, scenario, mode: applyMode });
       await fetchAll(scenario);
       const st = await api.get<StatusData>('/api/status');
       setStatus(st);
@@ -539,6 +564,16 @@ export default function App() {
         </button>
 
         <button
+          id="topbar-log"
+          className={`btn ${showLog ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setShowLog(v => !v)}
+          title="Toggle live pipeline activity log"
+          style={{ padding: '6px 10px', fontSize: 11 }}
+        >
+          Log ({eventLog.length})
+        </button>
+
+        <button
           id="topbar-refresh"
           className="btn btn-ghost"
           onClick={() => fetchAll(scenario)}
@@ -566,6 +601,32 @@ export default function App() {
           {/* Error banner */}
           {error && <ErrorMsg msg={error} />}
 
+          {/* Live Activity Log drawer (SSE / /api/events/recent) */}
+          {showLog && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-header">
+                <Activity size={15} color="var(--accent-purple)" />
+                <h2>Live Pipeline Log</h2>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>
+                  {eventLog.length} event(s) · /api/events
+                </span>
+              </div>
+              <div className="card-body" style={{ maxHeight: 180, overflowY: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                {eventLog.length === 0 ? (
+                  <div style={{ color: 'var(--text-2)' }}>No events recorded yet.</div>
+                ) : (
+                  [...eventLog].reverse().map(ev => (
+                    <div key={ev.id} style={{ padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ color: 'var(--text-2)' }}>{ev.ts.slice(11, 19)}Z</span>{' '}
+                      <span className="tag tag-purple" style={{ fontSize: 9, marginRight: 6 }}>{ev.stage}</span>
+                      <span>{ev.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── Overview ── */}
           {activeTab === 'overview' && (
             loading && !status
@@ -588,6 +649,19 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+                {scenario !== 'benign' && (
+                  <div className="page-header-actions">
+                    <button
+                      id="hot-add-host"
+                      className="btn btn-primary"
+                      onClick={handleHotAddHost}
+                      disabled={addingHost || loading}
+                      title="Hot-add a second database host (db02) live and re-enumerate"
+                    >
+                      {addingHost ? 'Adding db02…' : '+ Add Host (db02)'}
+                    </button>
+                  </div>
+                )}
               </div>
               {loading && !network ? <Loader /> : network ? (
                 <div className="card">
@@ -760,6 +834,37 @@ export default function App() {
                             ))}
                           </tbody>
                         </table>
+                        {scorerData.real_cve_benchmark && (
+                          <div style={{ marginTop: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-0)', marginBottom: 6 }}>
+                              Real-World CVE Temporal Benchmark — Held-Out 2024 Test (N={scorerData.real_cve_benchmark.dataset.test_2024.n}, {scorerData.real_cve_benchmark.dataset.total_cves} NVD + Exploit-DB + CISA KEV CVEs)
+                            </div>
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  <th>Model / Baseline (2024 Test)</th>
+                                  <th>ROC-AUC</th>
+                                  <th>PR-AUC</th>
+                                  <th>Macro-F1</th>
+                                  <th>R@100</th>
+                                  <th>Brier</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {scorerData.real_cve_benchmark.test_2024_results.map((r, idx) => (
+                                  <tr key={idx}>
+                                    <td style={{ fontWeight: r.name.startsWith('ASCEND') ? 700 : 400 }}>{r.name}</td>
+                                    <td style={{ fontFamily: 'var(--font-mono)' }}>{r.roc_auc.toFixed(3)}</td>
+                                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{r.pr_auc.toFixed(3)}</td>
+                                    <td style={{ fontFamily: 'var(--font-mono)' }}>{r.macro_f1.toFixed(3)}</td>
+                                    <td style={{ fontFamily: 'var(--font-mono)' }}>{r.recall_at_100.toFixed(3)}</td>
+                                    <td style={{ fontFamily: 'var(--font-mono)' }}>{r.brier_score.toFixed(4)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                         {scorerData.model.caveats.length > 0 && (
                           <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>
                             {scorerData.model.caveats.join(' · ')}
@@ -821,8 +926,26 @@ export default function App() {
                   <Shield size={20} color="var(--text-1)" />
                   <div>
                     <h1>Remediation</h1>
-                    <div className="subtitle">Chokepoint analysis & ranked fixes</div>
+                    <div className="subtitle">Chokepoint analysis &amp; ranked fixes</div>
                   </div>
+                </div>
+                <div className="page-header-actions" style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    className={`btn ${applyMode === 'what_if' ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setApplyMode('what_if')}
+                    title="Assessment mode: safe in-memory what-if graph projection (zero host mutation)"
+                    style={{ fontSize: 11 }}
+                  >
+                    What-If (Read-Only)
+                  </button>
+                  <button
+                    className={`btn ${applyMode === 'live_lab' ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setApplyMode('live_lab')}
+                    title="Lab mode: executes the real Linux hardening command inside the Docker container"
+                    style={{ fontSize: 11 }}
+                  >
+                    Live Lab Apply
+                  </button>
                 </div>
               </div>
               {loading && !remediation ? (

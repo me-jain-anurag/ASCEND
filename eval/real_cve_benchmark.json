@@ -1,0 +1,553 @@
+{
+  "dataset": {
+    "sources": [
+      "NVD API v2.0",
+      "Exploit-DB (files_exploits.csv)",
+      "CISA KEV (via NVD hasKev)",
+      "FIRST EPSS (comparator only)"
+    ],
+    "total_cves": 9887,
+    "train_2018_2022": {
+      "n": 5559,
+      "positives": 778,
+      "pos_rate": 0.14
+    },
+    "val_2023": {
+      "n": 946,
+      "positives": 169,
+      "pos_rate": 0.1786
+    },
+    "test_2024": {
+      "n": 2466,
+      "positives": 162,
+      "pos_rate": 0.0657,
+      "epss_coverage": 1.0
+    },
+    "prospective_2025_2026": {
+      "n": 916,
+      "positives": 427,
+      "pos_rate": 0.4662
+    }
+  },
+  "test_2024_results": [
+    {
+      "name": "Majority-Class Baseline",
+      "kind": "baseline",
+      "feature_tier": "none",
+      "threshold": 0.5,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.5,
+      "roc_auc_ci95": [
+        0.5,
+        0.5
+      ],
+      "pr_auc": 0.0657,
+      "pr_auc_ci95": [
+        0.0572,
+        0.075
+      ],
+      "macro_f1": 0.483,
+      "precision": 0.0,
+      "recall": 0.0,
+      "recall_at_100": 0.1049,
+      "recall_at_250": 0.1605,
+      "brier_score": 0.0669,
+      "ece": 0.0743
+    },
+    {
+      "name": "CVSS Base >= 7.0 Baseline",
+      "kind": "baseline",
+      "feature_tier": "cvss_scalar",
+      "threshold": 0.5,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.7029,
+      "roc_auc_ci95": [
+        0.6745,
+        0.7319
+      ],
+      "pr_auc": 0.1103,
+      "pr_auc_ci95": [
+        0.0924,
+        0.1304
+      ],
+      "macro_f1": 0.4551,
+      "precision": 0.1177,
+      "recall": 0.858,
+      "recall_at_100": 0.142,
+      "recall_at_250": 0.179,
+      "brier_score": 0.4319,
+      "ece": 0.4319
+    },
+    {
+      "name": "CVSS Base Continuous",
+      "kind": "baseline",
+      "feature_tier": "cvss_scalar",
+      "threshold": 0.7,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.7989,
+      "roc_auc_ci95": [
+        0.763,
+        0.8326
+      ],
+      "pr_auc": 0.2814,
+      "pr_auc_ci95": [
+        0.2222,
+        0.3401
+      ],
+      "macro_f1": 0.4551,
+      "precision": 0.1177,
+      "recall": 0.858,
+      "recall_at_100": 0.216,
+      "recall_at_250": 0.5062,
+      "brier_score": 0.4206,
+      "ece": 0.6005
+    },
+    {
+      "name": "FIRST EPSS (External Live ML)",
+      "kind": "external_baseline",
+      "feature_tier": "epss_live",
+      "threshold": 0.1,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.9947,
+      "roc_auc_ci95": [
+        0.9916,
+        0.9971
+      ],
+      "pr_auc": 0.9427,
+      "pr_auc_ci95": [
+        0.9113,
+        0.9672
+      ],
+      "macro_f1": 0.9069,
+      "precision": 0.9302,
+      "recall": 0.7407,
+      "recall_at_100": 0.5926,
+      "recall_at_250": 0.963,
+      "brier_score": 0.026,
+      "ece": 0.0268
+    },
+    {
+      "name": "Calibrated LR (Tier 1: CVSS Sub-metrics)",
+      "kind": "model",
+      "feature_tier": "cvss_submetrics",
+      "threshold": 0.31,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.9013,
+      "roc_auc_ci95": [
+        0.8785,
+        0.9191
+      ],
+      "pr_auc": 0.4463,
+      "pr_auc_ci95": [
+        0.3693,
+        0.5137
+      ],
+      "macro_f1": 0.7527,
+      "precision": 0.514,
+      "recall": 0.5679,
+      "recall_at_100": 0.3086,
+      "recall_at_250": 0.6173,
+      "brier_score": 0.048,
+      "ece": 0.0405
+    },
+    {
+      "name": "Calibrated LR (Tier 1+2: +CWE/ATT&CK)",
+      "kind": "model",
+      "feature_tier": "ontology_context",
+      "threshold": 0.35,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.9598,
+      "roc_auc_ci95": [
+        0.9367,
+        0.9775
+      ],
+      "pr_auc": 0.7712,
+      "pr_auc_ci95": [
+        0.7039,
+        0.839
+      ],
+      "macro_f1": 0.895,
+      "precision": 0.8759,
+      "recall": 0.7407,
+      "recall_at_100": 0.5679,
+      "recall_at_250": 0.8642,
+      "brier_score": 0.0217,
+      "ece": 0.0112
+    },
+    {
+      "name": "Calibrated LR (Full Multimodal + TF-IDF)",
+      "kind": "model",
+      "feature_tier": "multimodal_full",
+      "threshold": 0.15,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.961,
+      "roc_auc_ci95": [
+        0.9384,
+        0.9792
+      ],
+      "pr_auc": 0.8705,
+      "pr_auc_ci95": [
+        0.8205,
+        0.9155
+      ],
+      "macro_f1": 0.945,
+      "precision": 0.9057,
+      "recall": 0.8889,
+      "recall_at_100": 0.5864,
+      "recall_at_250": 0.9136,
+      "brier_score": 0.0129,
+      "ece": 0.0217
+    },
+    {
+      "name": "Calibrated Random Forest (Full + SVD)",
+      "kind": "model",
+      "feature_tier": "multimodal_full",
+      "threshold": 0.34,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.9346,
+      "roc_auc_ci95": [
+        0.9064,
+        0.9602
+      ],
+      "pr_auc": 0.852,
+      "pr_auc_ci95": [
+        0.8003,
+        0.8996
+      ],
+      "macro_f1": 0.9292,
+      "precision": 0.865,
+      "recall": 0.8704,
+      "recall_at_100": 0.5926,
+      "recall_at_250": 0.8827,
+      "brier_score": 0.0182,
+      "ece": 0.0409
+    },
+    {
+      "name": "Calibrated HistGBDT (Full + SVD)",
+      "kind": "model",
+      "feature_tier": "multimodal_full",
+      "threshold": 0.45,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.9327,
+      "roc_auc_ci95": [
+        0.9008,
+        0.9606
+      ],
+      "pr_auc": 0.8528,
+      "pr_auc_ci95": [
+        0.8037,
+        0.8999
+      ],
+      "macro_f1": 0.9369,
+      "precision": 0.9139,
+      "recall": 0.8519,
+      "recall_at_100": 0.5926,
+      "recall_at_250": 0.8765,
+      "brier_score": 0.0225,
+      "ece": 0.0543
+    },
+    {
+      "name": "ASCEND Calibrated Multimodal Ensemble",
+      "kind": "model",
+      "feature_tier": "multimodal_ensemble",
+      "threshold": 0.43,
+      "n_test": 2466,
+      "positives": 162,
+      "roc_auc": 0.948,
+      "roc_auc_ci95": [
+        0.9201,
+        0.9707
+      ],
+      "pr_auc": 0.886,
+      "pr_auc_ci95": [
+        0.8349,
+        0.9278
+      ],
+      "macro_f1": 0.9508,
+      "precision": 0.9346,
+      "recall": 0.8827,
+      "recall_at_100": 0.5926,
+      "recall_at_250": 0.9136,
+      "brier_score": 0.0142,
+      "ece": 0.0395
+    }
+  ],
+  "prospective_2025_2026_results": [
+    {
+      "name": "CVSS Base Continuous (2025-26)",
+      "kind": "baseline",
+      "feature_tier": "cvss_scalar",
+      "threshold": 0.7,
+      "n_test": 916,
+      "positives": 427,
+      "roc_auc": 0.6383,
+      "roc_auc_ci95": [
+        0.6093,
+        0.6743
+      ],
+      "pr_auc": 0.5917,
+      "pr_auc_ci95": [
+        0.5438,
+        0.6388
+      ],
+      "macro_f1": 0.5519,
+      "precision": 0.5282,
+      "recall": 0.8759,
+      "recall_at_100": 0.1358,
+      "recall_at_250": 0.3747,
+      "brier_score": 0.3497,
+      "ece": 0.3374
+    },
+    {
+      "name": "FIRST EPSS (2025-26 Live)",
+      "kind": "external_baseline",
+      "feature_tier": "epss_live",
+      "threshold": 0.1,
+      "n_test": 916,
+      "positives": 427,
+      "roc_auc": 0.966,
+      "roc_auc_ci95": [
+        0.9551,
+        0.9766
+      ],
+      "pr_auc": 0.9661,
+      "pr_auc_ci95": [
+        0.9553,
+        0.976
+      ],
+      "macro_f1": 0.8136,
+      "precision": 0.9926,
+      "recall": 0.6276,
+      "recall_at_100": 0.2342,
+      "recall_at_250": 0.5808,
+      "brier_score": 0.2264,
+      "ece": 0.2646
+    },
+    {
+      "name": "ASCEND Calibrated Multimodal Ensemble (2025-26)",
+      "kind": "model",
+      "feature_tier": "multimodal_ensemble",
+      "threshold": 0.43,
+      "n_test": 916,
+      "positives": 427,
+      "roc_auc": 0.9109,
+      "roc_auc_ci95": [
+        0.8888,
+        0.9315
+      ],
+      "pr_auc": 0.9262,
+      "pr_auc_ci95": [
+        0.9076,
+        0.9438
+      ],
+      "macro_f1": 0.8573,
+      "precision": 0.8511,
+      "recall": 0.8431,
+      "recall_at_100": 0.2319,
+      "recall_at_250": 0.5831,
+      "brier_score": 0.1069,
+      "ece": 0.0487
+    }
+  ],
+  "top_terms": {
+    "positive_risk_signals": [
+      {
+        "term": "elevation privilege",
+        "weight": 2.051
+      },
+      {
+        "term": "elevation",
+        "weight": 1.869
+      },
+      {
+        "term": "smr",
+        "weight": 1.414
+      },
+      {
+        "term": "v1",
+        "weight": 1.389
+      },
+      {
+        "term": "escalate",
+        "weight": 1.357
+      },
+      {
+        "term": "privilege vulnerability",
+        "weight": 1.354
+      },
+      {
+        "term": "mmap",
+        "weight": 1.327
+      },
+      {
+        "term": "error",
+        "weight": 1.262
+      },
+      {
+        "term": "escalate privileges",
+        "weight": 1.26
+      },
+      {
+        "term": "microsoft",
+        "weight": 1.223
+      },
+      {
+        "term": "upstream",
+        "weight": 1.196
+      },
+      {
+        "term": "allows",
+        "weight": 1.172
+      }
+    ],
+    "negative_risk_signals": [
+      {
+        "term": "escalation",
+        "weight": -3.124
+      },
+      {
+        "term": "escalation privileges",
+        "weight": -3.067
+      },
+      {
+        "term": "escalation privilege",
+        "weight": -2.569
+      },
+      {
+        "term": "intel",
+        "weight": -2.267
+      },
+      {
+        "term": "lead",
+        "weight": -1.73
+      },
+      {
+        "term": "user potentially",
+        "weight": -1.66
+      },
+      {
+        "term": "privileges",
+        "weight": -1.634
+      },
+      {
+        "term": "enable escalation",
+        "weight": -1.6
+      }
+    ]
+  },
+  "anchor_cves": [
+    {
+      "cve_id": "CVE-2022-0847",
+      "cvss_base": 7.8,
+      "epss_live": 0.92795,
+      "ascend_model_prob": 0.4046,
+      "exploited_ground_truth": true,
+      "in_cisa_kev": true,
+      "in_exploitdb": true
+    },
+    {
+      "cve_id": "CVE-2021-4034",
+      "cvss_base": 7.8,
+      "epss_live": 0.94921,
+      "ascend_model_prob": 0.431,
+      "exploited_ground_truth": true,
+      "in_cisa_kev": true,
+      "in_exploitdb": true
+    }
+  ],
+  "top_2024_linux_privesc_cves": [
+    {
+      "cve_id": "CVE-2024-21410",
+      "published": "2024-02-13",
+      "cvss_base": 9.8,
+      "epss_live": 0.60833,
+      "ascend_model_prob": 1.0,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "Microsoft Exchange Server Elevation of Privilege Vulnerability"
+    },
+    {
+      "cve_id": "CVE-2024-9463",
+      "published": "2024-10-09",
+      "cvss_base": 7.5,
+      "epss_live": 0.98546,
+      "ascend_model_prob": 1.0,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "An OS command injection vulnerability in Palo Alto Networks Expedition allows an unauthenticated attacker to run arbitrary OS commands as root in Expedition, resulting in disclosur"
+    },
+    {
+      "cve_id": "CVE-2024-21338",
+      "published": "2024-02-13",
+      "cvss_base": 7.8,
+      "epss_live": 0.62209,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": true,
+      "summary": "Windows Kernel Elevation of Privilege Vulnerability"
+    },
+    {
+      "cve_id": "CVE-2024-26169",
+      "published": "2024-03-12",
+      "cvss_base": 7.8,
+      "epss_live": 0.04014,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "Windows Error Reporting Service Elevation of Privilege Vulnerability"
+    },
+    {
+      "cve_id": "CVE-2024-3400",
+      "published": "2024-04-12",
+      "cvss_base": 10.0,
+      "epss_live": 0.99999,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": true,
+      "summary": "A command injection as a result of arbitrary file creation vulnerability in the GlobalProtect feature of Palo Alto Networks PAN-OS software for specific PAN-OS versions and distinc"
+    },
+    {
+      "cve_id": "CVE-2024-30051",
+      "published": "2024-05-14",
+      "cvss_base": 7.8,
+      "epss_live": 0.06168,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "Windows DWM Core Library Elevation of Privilege Vulnerability"
+    },
+    {
+      "cve_id": "CVE-2024-30088",
+      "published": "2024-06-11",
+      "cvss_base": 7.0,
+      "epss_live": 0.68202,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "Windows Kernel Elevation of Privilege Vulnerability"
+    },
+    {
+      "cve_id": "CVE-2024-38080",
+      "published": "2024-07-09",
+      "cvss_base": 7.8,
+      "epss_live": 0.07058,
+      "ascend_model_prob": 0.9864,
+      "in_cisa_kev": true,
+      "in_exploitdb": false,
+      "summary": "Windows Hyper-V Elevation of Privilege Vulnerability"
+    }
+  ],
+  "caveats": [
+    "Disclosure-time features ONLY: Exploit-DB, CISA KEV, Exploit reference tags, and FIRST EPSS are strictly excluded from model inputs to prevent hindsight leakage.",
+    "2024 held-out test set (N=2,466, 6.6% exploited) reflects realistic post-Linux-CNA imbalance; 2025-2026 cohort is KEV-enriched and reported separately as a prospective check."
+  ]
+}

@@ -199,4 +199,11 @@ export interface ScorerData {
     caveats: string[];
   };
   path_scores: Record<string, PathScore>;
+  real_cve_benchmark?: {
+    dataset: { total_cves: number; test_2024: { n: number; positives: number; pos_rate: number } };
+    test_2024_results: Array<{
+      name: string; kind: string; roc_auc: number; pr_auc: number;
+      macro_f1: number; recall_at_100: number; brier_score: number; ece: number;
+    }>;
+  } | null;
 }
